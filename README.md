@@ -48,10 +48,12 @@ SERVER_PUBLIC_HOST=your-server-ip-or-domain
 SERVER_DISPLAY_NAME=My AmneziaWG Server
 ```
 
+В `.env.example` значение `DEVELOPMENT=false` оставлено безопасным по умолчанию. Включайте `DEVELOPMENT=true` только для локального запуска, когда нужны `/docs`, `/redoc` или `/openapi.json`.
+
 Запустите API локально:
 
 ```bash
-uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 При `DEVELOPMENT=true` документация доступна по адресам:
@@ -82,6 +84,14 @@ uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 | `NGINX_SERVER_NAME` | нет | `localhost` | Домен или IP, который nginx принимает в `server_name`. |
 | `NGINX_CERTS_PATH` | нет | `./nginx/certs` | Каталог с `fullchain.pem` и `privkey.pem` для TLS. |
 | `NGINX_CLIENT_MAX_BODY_SIZE` | нет | `1m` | Лимит размера HTTP-запроса на nginx. |
+
+Для production можно начать с отдельного шаблона:
+
+```bash
+cp .env.production.example .env
+```
+
+Перед запуском production-профиля оставьте `DEVELOPMENT=false`, задайте `SERVER_PUBLIC_HOST`, `API_ALLOWED_HOSTS`, `NGINX_SERVER_NAME` и положите TLS-сертификаты в `NGINX_CERTS_PATH`. При `DEVELOPMENT=false` маршруты `/docs`, `/redoc` и `/openapi.json` не публикуются приложением.
 
 Не коммитьте реальные `.env` файлы, API-ключи, серверные учетные данные и сгенерированные peer-секреты.
 
@@ -145,7 +155,7 @@ curl "http://localhost:8000/peers/?online_only=true" \
 docker compose up --build
 ```
 
-API публикуется только на `127.0.0.1:${API_PORT:-8000}`. Для production-запуска через nginx положите TLS-сертификаты в `NGINX_CERTS_PATH` с именами `fullchain.pem` и `privkey.pem`, задайте `DEVELOPMENT=false`, `SERVER_PUBLIC_HOST`, `API_ALLOWED_HOSTS` и `NGINX_SERVER_NAME`, затем запустите:
+API публикуется только на `127.0.0.1:${API_PORT:-8000}`. Для production-запуска через nginx используйте `.env.production.example` как основу, положите TLS-сертификаты в `NGINX_CERTS_PATH` с именами `fullchain.pem` и `privkey.pem`, задайте `DEVELOPMENT=false`, `SERVER_PUBLIC_HOST`, `API_ALLOWED_HOSTS` и `NGINX_SERVER_NAME`, затем запустите:
 
 ```bash
 docker compose --profile nginx up --build

@@ -186,6 +186,15 @@ def test_openapi_contract_exposes_current_routes(functional_client):
     assert set(paths["/server/restart"]) == {"post"}
 
 
+def test_development_swagger_ui_does_not_persist_authorization(functional_client):
+    client, _, _ = functional_client
+
+    response = client.get("/docs")
+
+    assert response.status_code == 200
+    assert '"persistAuthorization": false' in response.text
+
+
 @pytest.mark.anyio
 async def test_lifespan_does_not_log_api_key(monkeypatch):
     secret_api_key = "secret-key-that-must-not-be-logged"

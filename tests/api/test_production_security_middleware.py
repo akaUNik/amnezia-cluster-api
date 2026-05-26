@@ -55,6 +55,15 @@ def test_production_accepts_configured_host(production_main):
     assert response.json() == {"app": "Amnezia API", "status": "running"}
 
 
+@pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+def test_production_does_not_expose_openapi_docs(production_main, path):
+    client = TestClient(production_main.app, base_url="https://api.example.test")
+
+    response = client.get(path)
+
+    assert response.status_code == 404
+
+
 def test_production_https_redirect_can_be_enabled(monkeypatch, production_main):
     monkeypatch.setenv("API_ENFORCE_HTTPS", "true")
 

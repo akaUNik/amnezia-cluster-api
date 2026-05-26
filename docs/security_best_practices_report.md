@@ -144,23 +144,23 @@ The service protects operational routes with an `X-API-Key` header and disables 
 - Mitigation: Keep the API on a private interface or VPN-only network. Verify reverse proxy config before public exposure.
 - False positive notes: These protections may exist outside this repository. If so, document the deployment requirement.
 
-### SEC-008: Development defaults can expose OpenAPI docs if copied into production
+### [FIXED] SEC-008: Development defaults can expose OpenAPI docs if copied into production
 
 - Rule ID: FASTAPI-OPENAPI-001
 - Severity: Medium
-- Location: `.env.example`, line 2; `src/main.py`, lines 38-41; README lines 43-61
+- Location: `.env.example`, lines 1-4; `.env.production.example`; `src/main.py`, lines 65-68; README environment and Docker sections
 - Evidence:
   ```env
-  DEVELOPMENT=true
+  DEVELOPMENT=false
   ```
   ```python
   docs_url="/docs" if settings.development else None
   redoc_url="/redoc" if settings.development else None
   openapi_url="/openapi.json" if settings.development else None
-  swagger_ui_parameters={"persistAuthorization": True}
+  swagger_ui_parameters={"persistAuthorization": False}
   ```
 - Impact: OpenAPI/Swagger exposure reveals all admin endpoints and enables browser-side persisted authorization when `DEVELOPMENT=true`. This is acceptable for local development but risky if the example `.env` is reused on a reachable server.
-- Fix: Provide a production example with `DEVELOPMENT=false`, make deployment docs explicit, and consider failing startup when `DEVELOPMENT=true` and the app binds publicly outside local development.
+- Fix: Changed `.env.example` to default `DEVELOPMENT=false`, added `.env.production.example`, changed the local quick-start command to bind loopback, documented production setup with docs endpoints disabled, and disabled Swagger UI persisted authorization even in development.
 - Mitigation: Do not expose `/docs`, `/redoc`, or `/openapi.json` on public deployments. Clear browser storage after using Swagger UI with an API key.
 - False positive notes: The code correctly disables docs when `DEVELOPMENT=false`; the risk is deployment drift.
 

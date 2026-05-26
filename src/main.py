@@ -65,7 +65,7 @@ app = FastAPI(
     docs_url="/docs" if settings.development else None,
     redoc_url="/redoc" if settings.development else None,
     openapi_url="/openapi.json" if settings.development else None,
-    swagger_ui_parameters={"persistAuthorization": True},
+    swagger_ui_parameters={"persistAuthorization": False},
 )
 
 configure_security_middleware(app, settings)
