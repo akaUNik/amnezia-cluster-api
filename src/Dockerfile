@@ -2,12 +2,15 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-RUN pip install poetry
+COPY --from=ghcr.io/astral-sh/uv:0.10.5 /uv /uvx /bin/
 
-COPY pyproject.toml ./
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
 
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi --no-root
+COPY pyproject.toml uv.lock ./
+
+RUN uv sync --locked --no-dev
 
 COPY . .
 

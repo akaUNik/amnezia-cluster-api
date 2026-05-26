@@ -52,4 +52,27 @@ API на базе FastAPI для взаимодействия с сервиса�
 
 ## 2. Настройка окружения Amnezia API
 
+1. Установите `uv`, если он еще не установлен:
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+2. Создайте локальный файл окружения:
+   ```bash
+   cp .env.example .env
+   ```
+3. Заполните значения в `.env` под ваше окружение.
+
 ## 3. Запуск проекта
+
+### Локальный запуск
+
+```bash
+uv sync
+uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Запуск в Docker
+
+```bash
+docker compose up --build
+```
