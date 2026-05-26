@@ -1,3 +1,5 @@
+limit_req_zone $binary_remote_addr zone=amnezia_api_per_ip:10m rate=${NGINX_RATE_LIMIT_RATE};
+
 server {
     listen 80;
     server_name ${NGINX_SERVER_NAME};
@@ -17,8 +19,11 @@ server {
     ssl_session_cache shared:amnezia_api_tls:10m;
 
     client_max_body_size ${NGINX_CLIENT_MAX_BODY_SIZE};
+    limit_req_status 429;
 
     location / {
+        limit_req zone=amnezia_api_per_ip burst=${NGINX_RATE_LIMIT_BURST} nodelay;
+
         proxy_pass http://api:8000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

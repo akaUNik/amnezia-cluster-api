@@ -141,18 +141,26 @@ No critical Docker-specific findings were identified in this pass.
 ### DOCKER-006: Public nginx profile has no source allowlist or request rate limit
 
 - Severity: Medium
-- Location: `docker-compose.yml`, lines 18-33; `nginx/templates/default.conf.template`, lines 1-31
-- Evidence:
+- Status: Fixed
+- Location: `docker-compose.yml`, nginx service; `nginx/templates/default.conf.template`; `README.md`, Docker section
+- Previous evidence:
   ```yaml
   ports:
     - 80:80
     - 443:443
   ```
   nginx terminates TLS and proxies to the API, but does not enforce IP allowlists or request rate limits.
-- Impact: The public nginx profile exposes the admin API to any network that can reach ports 80 and 443. API key authentication remains required, but exposed admin endpoints are easier to brute force, scan, and probe.
-- Recommended fix: Add source IP allowlists where deployments have known admin networks, and add nginx request limiting for authentication-protected routes.
-- Mitigation: Use host firewall rules, VPN-only access, or a private load balancer when source IP allowlisting is not stable.
-- False positive notes: App-level API key checks and host/TLS middleware reduce risk. Network-layer restriction is still appropriate for an administrative API.
+- Previous impact: The public nginx profile exposed the admin API to any network that could reach ports 80 and 443. API key authentication remained required, but exposed admin endpoints were easier to brute force, scan, and probe.
+- Remediation: The nginx template now applies per-client request limiting before proxying to the API:
+  ```nginx
+  limit_req_zone $binary_remote_addr zone=amnezia_api_per_ip:10m rate=${NGINX_RATE_LIMIT_RATE};
+  limit_req zone=amnezia_api_per_ip burst=${NGINX_RATE_LIMIT_BURST} nodelay;
+  limit_req_status 429;
+  ```
+  Compose sets safe defaults with `NGINX_RATE_LIMIT_RATE=60r/m` and `NGINX_RATE_LIMIT_BURST=20`, and the environment examples document both values.
+- UFW requirement: `README.md` now requires configuring UFW before starting the production nginx profile, allowing `80/tcp` and `443/tcp` only from trusted administrative IP/CIDR ranges, preserving SSH access, and externally verifying that non-allowlisted sources cannot reach the published ports.
+- Residual risk: Docker can publish container ports through its own iptables rules, so operators must verify UFW behavior against Docker-published `80` and `443` and connect UFW policy to `DOCKER-USER` or equivalent forwarded-traffic rules if the host's Docker networking bypasses ordinary UFW input rules.
+- False positive notes: App-level API key checks and host/TLS middleware reduce risk, but UFW is still required for production because this is an administrative API.
 
 ### DOCKER-007: Base images are tag-pinned but not digest-pinned or scanned in this repo
 
@@ -211,6 +219,8 @@ No critical Docker-specific findings were identified in this pass.
 - The direct API port is bound to loopback in Compose: `127.0.0.1:${API_PORT:-8000}:8000`.
 - The nginx profile mounts certificates read-only into the nginx container.
 - nginx redirects HTTP to HTTPS and proxies `X-Forwarded-Proto: https`.
+- nginx now applies a configurable per-client request rate limit.
+- Production nginx deployment is documented as requiring UFW source restrictions before exposing ports 80 and 443.
 - `.dockerignore` excludes `.env`, `.git`, virtual environments, Python bytecode, tool caches, TLS certificates, and common private key files.
 - The Dockerfile uses `uv sync --locked --no-dev`, reducing dependency drift and excluding development dependencies.
 - The API image now runs the application process as a dedicated non-root user.
@@ -222,8 +232,7 @@ No critical Docker-specific findings were identified in this pass.
 2. Make production configuration read-only and pre-provision `API_KEY` outside the container.
 3. Add Compose runtime restrictions after testing compatibility.
 4. Add a CI container vulnerability scan and define a base image update workflow.
-5. Add nginx allowlisting/rate limiting for public deployments.
-6. Add Compose health checks for `api` and `nginx`.
+5. Add Compose health checks for `api` and `nginx`.
 
 ## Notes
 

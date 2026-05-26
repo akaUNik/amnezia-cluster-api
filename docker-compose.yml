@@ -31,6 +31,8 @@ services:
     environment:
       NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-localhost}
       NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-1m}
+      NGINX_RATE_LIMIT_RATE: ${NGINX_RATE_LIMIT_RATE:-60r/m}
+      NGINX_RATE_LIMIT_BURST: ${NGINX_RATE_LIMIT_BURST:-20}
     ports:
       - 80:80
       - 443:443

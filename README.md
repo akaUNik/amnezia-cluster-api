@@ -25,6 +25,7 @@ FastAPI-сервис для управления Amnezia-сервером и pee
 - Настроенный Amnezia-сервер
 - Доступ к `/opt/amnezia` на сервере
 - Доступ к Docker socket для управления контейнером
+- UFW на production-сервере при публикации nginx-профиля
 
 ## Быстрый старт
 
@@ -84,6 +85,8 @@ uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 | `NGINX_SERVER_NAME` | нет | `localhost` | Домен или IP, который nginx принимает в `server_name`. |
 | `NGINX_CERTS_PATH` | нет | `./nginx/certs` | Каталог с `fullchain.pem` и `privkey.pem` для TLS. |
 | `NGINX_CLIENT_MAX_BODY_SIZE` | нет | `1m` | Лимит размера HTTP-запроса на nginx. |
+| `NGINX_RATE_LIMIT_RATE` | нет | `60r/m` | nginx rate limit на один клиентский IP. |
+| `NGINX_RATE_LIMIT_BURST` | нет | `20` | Допустимый кратковременный burst для nginx rate limit. |
 
 Для production можно начать с отдельного шаблона:
 
@@ -92,6 +95,8 @@ cp .env.production.example .env
 ```
 
 Перед запуском production-профиля оставьте `DEVELOPMENT=false`, задайте `SERVER_PUBLIC_HOST`, `API_ALLOWED_HOSTS`, `NGINX_SERVER_NAME` и положите TLS-сертификаты в `NGINX_CERTS_PATH`. При `DEVELOPMENT=false` маршруты `/docs`, `/redoc` и `/openapi.json` не публикуются приложением.
+
+Production-профиль nginx должен публиковаться только после настройки UFW. Разрешайте `80/tcp` и `443/tcp` только с доверенных административных IP/CIDR и проверяйте правила с внешнего адреса, которого нет в allowlist.
 
 Не коммитьте реальные `.env` файлы, API-ключи, серверные учетные данные и сгенерированные peer-секреты.
 
@@ -162,6 +167,22 @@ docker compose --profile nginx up --build
 ```
 
 nginx слушает `80` и `443`, перенаправляет HTTP на HTTPS, проксирует запросы к API и передает исходный `Host`, который дополнительно проверяется приложением в production.
+
+Перед запуском nginx-профиля настройте UFW на хосте. Замените `203.0.113.10/32` на реальные IP/CIDR администраторов и сохраните отдельное правило для SSH, чтобы не потерять доступ к серверу:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw allow from 203.0.113.10/32 to any port 80 proto tcp
+sudo ufw allow from 203.0.113.10/32 to any port 443 proto tcp
+sudo ufw enable
+sudo ufw status verbose
+```
+
+Docker может публиковать порты через собственные iptables-правила, поэтому обычного вывода `ufw status` недостаточно. После запуска `docker compose --profile nginx up --build` проверьте доступ к `80` и `443` с адреса вне allowlist; если доступ открыт, подключите UFW к цепочке `DOCKER-USER` или примените эквивалентные `ufw route`-правила для Docker-forwarded traffic до production-запуска.
+
+nginx также ограничивает частоту запросов на один клиентский IP через `NGINX_RATE_LIMIT_RATE` и `NGINX_RATE_LIMIT_BURST`.
 
 API-контейнер запускается не от root. Пользователь приложения и группа доступа к Docker socket задаются в `src/Dockerfile`; файлы и каталоги, которые контейнер должен менять через bind mount, должны быть доступны этому UID/GID. `API_KEY` обязателен: задайте его в `.env` или через механизм секретов перед запуском.
 
