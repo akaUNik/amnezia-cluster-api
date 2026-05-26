@@ -200,13 +200,14 @@ No critical Docker-specific findings were identified in this pass.
 ### DOCKER-009: Container health check is not defined in Compose
 
 - Severity: Low
+- Status: Fixed
 - Location: `docker-compose.yml`, lines 1-33
-- Evidence: No `healthcheck` is configured for `api` or `nginx`.
+- Previous evidence: No `healthcheck` was configured for `api` or `nginx`.
 - Impact: `restart: always` restarts crashed containers but does not detect a hung app, broken dependency, or failed HTTP health endpoint. This is primarily reliability, but stale unhealthy services can also hide failed security controls.
-- Recommended fix: Add an API health check against `/health`, for example:
+- Remediation: `api` and `nginx` now define curl-based health checks against `/health`. The API image installs `curl`, and nginx builds from a minimal local image that extends `nginx:stable-alpine` with `curl`.
   ```yaml
   healthcheck:
-    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+    test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "3", "http://127.0.0.1:8000/health"]
     interval: 30s
     timeout: 5s
     retries: 3
@@ -232,7 +233,7 @@ No critical Docker-specific findings were identified in this pass.
 2. Make production configuration read-only and pre-provision `API_KEY` outside the container.
 3. Add Compose runtime restrictions after testing compatibility.
 4. Add a CI container vulnerability scan and define a base image update workflow.
-5. Add Compose health checks for `api` and `nginx`.
+5. Completed: add Compose health checks for `api` and `nginx`.
 
 ## Notes
 

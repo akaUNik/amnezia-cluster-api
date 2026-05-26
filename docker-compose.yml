@@ -20,14 +20,23 @@ services:
     tmpfs:
       - /tmp
     pids_limit: 256
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "3", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: always
 
   nginx:
-    image: nginx:stable-alpine
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
     profiles:
       - nginx
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
       NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-localhost}
       NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-1m}
@@ -39,4 +48,10 @@ services:
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
       - ${NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "3", "--insecure", "https://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: always

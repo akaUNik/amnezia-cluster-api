@@ -14,6 +14,9 @@ ENV UV_COMPILE_BYTECODE=1 \
     HOME=/tmp
 
 RUN groupadd --gid "${APP_GID}" app \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes curl \
+    && rm -rf /var/lib/apt/lists/* \
     && if ! getent group "${DOCKER_SOCKET_GID}" > /dev/null; then \
         groupadd --gid "${DOCKER_SOCKET_GID}" docker-socket; \
     fi \
