@@ -1,3 +1,4 @@
+import hashlib
 import re
 import secrets
 from pathlib import Path
@@ -88,7 +89,9 @@ class APIKeyStorage:
 
     def verify_api_key(self, provided_key: str) -> bool:
         stored_key = self.get_api_key()
-        return provided_key == stored_key
+        provided_digest = hashlib.sha256(provided_key.encode("utf-8")).digest()
+        stored_digest = hashlib.sha256(stored_key.encode("utf-8")).digest()
+        return secrets.compare_digest(provided_digest, stored_digest)
 
     def _resolve_env_file_path(self, env_file_path: Path) -> Path:
         if env_file_path.is_absolute():

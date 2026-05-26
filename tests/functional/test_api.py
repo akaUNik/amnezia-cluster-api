@@ -90,9 +90,11 @@ def functional_client(monkeypatch):
 
     from src.management.security import get_api_key_storage
     from src.management.settings import get_settings
+    from src.api.v1.management.middlewares.auth import get_failed_auth_limiter
 
     get_settings.cache_clear()
     get_api_key_storage.cache_clear()
+    get_failed_auth_limiter.cache_clear()
 
     import docker
 
@@ -148,6 +150,7 @@ def functional_client(monkeypatch):
     peers_service_module.get_peers_service.cache_clear()
     get_settings.cache_clear()
     get_api_key_storage.cache_clear()
+    get_failed_auth_limiter.cache_clear()
 
 
 def auth_headers() -> dict[str, str]:
@@ -249,6 +252,19 @@ def test_protected_routes_reject_missing_or_invalid_api_key(functional_client, h
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid API key"}
+
+
+def test_repeated_invalid_api_key_attempts_are_rate_limited(functional_client):
+    client, _, _ = functional_client
+
+    for _ in range(10):
+        response = client.get("/peers/", headers={"X-API-Key": "wrong-key"})
+        assert response.status_code == 401
+
+    response = client.get("/peers/", headers={"X-API-Key": "wrong-key"})
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "Too many invalid API key attempts"}
 
 
 def test_peer_lifecycle_and_traffic_endpoints(functional_client):

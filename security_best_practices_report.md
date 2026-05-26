@@ -8,7 +8,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
 
 ## Critical Findings
 
-### \[FIXED\] SEC-001: Full API key is written to application logs
+### [FIXED] SEC-001: Full API key is written to application logs
 
 - Rule ID: FASTAPI-AUTH / secret logging
 - Severity: Critical
@@ -25,7 +25,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
 
 ## High Findings
 
-### \[IGNORE\] SEC-002: Privileged Docker socket and host mounts create a large blast radius
+### [IGNORE] SEC-002: Privileged Docker socket and host mounts create a large blast radius
 
 - Rule ID: deployment hardening / least privilege
 - Severity: High
@@ -49,7 +49,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
 - Mitigation: Firewall port 8000, restrict source IPs, use host-level logging/auditing for Docker API calls, and keep the Docker socket out of deployments that do not need container restart/status features.
 - False positive notes: The mounts appear intentional for this product, but they are privileged and should be treated as part of the trusted computing base.
 
-### \[FIXED\] SEC-003: Shell helpers execute interpolated command strings in privileged contexts
+### [FIXED] SEC-003: Shell helpers execute interpolated command strings in privileged contexts
 
 - Rule ID: FASTAPI-CMD-001 / command injection prevention
 - Severity: High
@@ -92,19 +92,21 @@ The service protects operational routes with an `X-API-Key` header and disables 
 
 ## Medium Findings
 
-### SEC-005: API key comparison is not constant-time and has no visible brute-force controls
+### [FIXED] SEC-005: API key comparison is not constant-time and has no visible brute-force controls
 
 - Rule ID: FASTAPI-AUTH-001 / API key hardening
 - Severity: Medium
-- Location: `src/management/security.py`, `verify_api_key`, lines 89-91; `src/api/v1/management/middlewares/auth.py`, lines 10-18
+- Location: `src/management/security.py`, `verify_api_key`, lines 90-94; `src/api/v1/management/middlewares/auth.py`, lines 27-104; `src/management/settings.py`, lines 11-14
 - Evidence:
   ```python
-  return provided_key == stored_key
+  provided_digest = hashlib.sha256(provided_key.encode("utf-8")).digest()
+  stored_digest = hashlib.sha256(stored_key.encode("utf-8")).digest()
+  return secrets.compare_digest(provided_digest, stored_digest)
   ```
-- Impact: Direct string comparison can leak timing differences, and there is no visible rate limiting, lockout, or network-level throttling for repeated invalid keys.
-- Fix: Use `secrets.compare_digest()` after normalizing types and lengths. Add rate limiting for failed auth at the proxy or application layer.
+- Impact: Direct string comparison could leak timing differences, and lack of rate limiting made repeated invalid key attempts harder to control.
+- Fix: Replaced direct comparison with fixed-length SHA-256 digest comparison via `secrets.compare_digest()`. Added an in-memory failed-auth limiter keyed by client host, returning HTTP 429 after repeated failures. The defaults are configurable with `API_KEY_FAILED_AUTH_LIMIT`, `API_KEY_FAILED_AUTH_WINDOW_SECONDS`, and `API_KEY_FAILED_AUTH_BLOCK_SECONDS`.
 - Mitigation: Restrict API access to trusted networks and rotate keys periodically.
-- False positive notes: Timing attacks may be hard to exploit over noisy networks, but the change is low-cost and appropriate for a single shared admin key.
+- False positive notes: Timing attacks may be hard to exploit over noisy networks, but the implemented change is low-cost and appropriate for a single shared admin key. Deployments should still prefer proxy or firewall rate limiting for distributed attacks.
 
 ### SEC-006: Outbound sync reuses the admin API key and allows insecure HTTP configuration
 
