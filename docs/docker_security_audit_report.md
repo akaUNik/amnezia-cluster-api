@@ -22,7 +22,7 @@ Validation performed:
 
 ## Executive Summary
 
-The container setup is functional and keeps the direct API port bound to `127.0.0.1` by default, which is a good baseline for local development. The largest risks are deployment and runtime hardening issues: the API container can access the host Docker socket, writes to `/opt/amnezia`, runs as root, and receives a writable `.env` mount. Those permissions appear intentional for the current product, but they make the API container part of the host trusted computing base.
+The container setup is functional and keeps the direct API port bound to `127.0.0.1` by default, which is a good baseline for local development. The largest remaining risks are deployment and runtime hardening issues: the API container can access the host Docker socket, writes to `/opt/amnezia`, and receives a writable `.env` mount. Those permissions appear intentional for the current product, but they make the API container part of the host trusted computing base.
 
 The previous build-time issue around TLS certificate material entering the API image has been remediated. `.dockerignore` now excludes certificate and private key patterns, and `src/Dockerfile` copies only the runtime `src/` tree after dependency installation instead of copying the whole repository.
 
@@ -86,8 +86,9 @@ No critical Docker-specific findings were identified in this pass.
 ### DOCKER-003: API container runs as root while holding privileged mounts
 
 - Severity: High
-- Location: `src/Dockerfile`, lines 1-19; `docker-compose.yml`, lines 12-15
-- Evidence:
+- Status: Fixed
+- Location: `src/Dockerfile`; `docker-compose.yml`
+- Previous evidence:
   ```dockerfile
   FROM python:3.13-slim
   ...
@@ -95,7 +96,7 @@ No critical Docker-specific findings were identified in this pass.
   ```
   No `USER` directive is set.
 - Impact: The container runs as root by default. Combined with the Docker socket, writable `/opt/amnezia`, and writable `.env` mounts, any process compromise gets maximum practical container permissions and easier access to sensitive mounted files.
-- Recommended fix: Create and switch to a dedicated non-root user in the image. Do not add that user to a Docker-equivalent group unless direct socket access remains unavoidable.
+- Remediation: The image now creates a dedicated `app` user/group from UID/GID values defined in `src/Dockerfile`, adds only the Docker socket group configured in the Dockerfile, copies runtime files with `app:app` ownership, and switches to `USER app`. These values are intentionally kept out of the public `.env` examples.
 - Mitigation: If direct Docker socket access blocks a non-root rollout, prioritize the sidecar/proxy change from `DOCKER-002`; otherwise non-root may give limited protection against the socket itself.
 - False positive notes: Non-root does not neutralize Docker socket risk by itself, but it still reduces damage across the filesystem and accidental privilege use.
 
@@ -213,17 +214,17 @@ No critical Docker-specific findings were identified in this pass.
 - nginx redirects HTTP to HTTPS and proxies `X-Forwarded-Proto: https`.
 - `.dockerignore` excludes `.env`, `.git`, virtual environments, Python bytecode, tool caches, TLS certificates, and common private key files.
 - The Dockerfile uses `uv sync --locked --no-dev`, reducing dependency drift and excluding development dependencies.
+- The API image now runs the application process as a dedicated non-root user.
 - The general security report already documents that Docker socket access and `/opt/amnezia` writes are privileged operations.
 
 ## Recommended Remediation Order
 
 1. Replace direct Docker socket mounting with a narrow proxy or privileged sidecar.
-2. Run the API image as a non-root user and avoid granting that user broad Docker access.
-3. Make production configuration read-only and pre-provision `API_KEY` outside the container.
-4. Add Compose runtime restrictions after testing compatibility.
-5. Add a CI container vulnerability scan and define a base image update workflow.
-6. Add nginx allowlisting/rate limiting for public deployments.
-7. Add Compose health checks for `api` and `nginx`.
+2. Make production configuration read-only and pre-provision `API_KEY` outside the container.
+3. Add Compose runtime restrictions after testing compatibility.
+4. Add a CI container vulnerability scan and define a base image update workflow.
+5. Add nginx allowlisting/rate limiting for public deployments.
+6. Add Compose health checks for `api` and `nginx`.
 
 ## Notes
 
