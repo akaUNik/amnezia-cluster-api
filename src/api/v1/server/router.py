@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
+from src.api.v1.errors import internal_server_error
 from src.api.v1.server.logger import logger
 from src.api.v1.server.schemas import (
     ServerStatusResponse,
@@ -39,12 +40,9 @@ async def get_server_status() -> ServerStatusResponse:
             )
         return ServerStatusResponse(**result)
 
-    except Exception as exc:
-        logger.error(f"Failed to get server status: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    except Exception:
+        logger.exception("Failed to get server status")
+        raise internal_server_error()
 
 
 @router.get(
@@ -64,12 +62,9 @@ async def get_server_traffic() -> ServerTrafficResponse:
 
         return ServerTrafficResponse(**result)
 
-    except Exception as exc:
-        logger.error(f"Failed to get server traffic: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    except Exception:
+        logger.exception("Failed to get server traffic")
+        raise internal_server_error()
 
 
 @router.post(
@@ -92,9 +87,6 @@ async def restart_server() -> RestartServerResponse:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
-        logger.error(f"Failed to restart server: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    except Exception:
+        logger.exception("Failed to restart server")
+        raise internal_server_error()

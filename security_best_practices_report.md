@@ -73,7 +73,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
 - Mitigation: Treat `protocols.yaml` and env-controlled paths as privileged configuration. Limit write access to `.env`, `protocols.yaml`, and `/opt/amnezia` to trusted administrators only.
 - False positive notes: The primary remote routes do not currently pass arbitrary request strings directly into these helpers. The finding is still high risk because the sink is privileged and several inputs come from deployment/config files and container file contents.
 
-### SEC-004: Raw internal exception messages are returned to API clients
+### [FIXED] SEC-004: Raw internal exception messages are returned to API clients
 
 - Rule ID: FASTAPI-ERR-001 / information disclosure
 - Severity: High
@@ -86,7 +86,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
   )
   ```
 - Impact: Authenticated clients can receive Docker errors, command stderr, filesystem paths, container names, protocol configuration details, and other internals. If the API key leaks, this helps an attacker refine follow-on attacks.
-- Fix: Return generic client-facing errors for unexpected 500s, such as `"internal server error"`, and log detailed exception context internally with sanitization.
+- Fix: Added a shared internal server error helper, changed unexpected 500 handlers to return `"internal server error"`, logged detailed exceptions internally with static messages, and added regression tests proving sensitive exception strings are not returned to clients.
 - Mitigation: Preserve specific 400/404 validation messages where they are intentionally user-actionable; avoid exposing stack, command, path, or container internals for unexpected failures.
 - False positive notes: This API is admin-oriented, so some operational detail may be acceptable. Unexpected exception strings should still be treated as sensitive.
 
