@@ -108,22 +108,24 @@ The service protects operational routes with an `X-API-Key` header and disables 
 - Mitigation: Restrict API access to trusted networks and rotate keys periodically.
 - False positive notes: Timing attacks may be hard to exploit over noisy networks, but the implemented change is low-cost and appropriate for a single shared admin key. Deployments should still prefer proxy or firewall rate limiting for distributed attacks.
 
-### SEC-006: Outbound sync reuses the admin API key and allows insecure HTTP configuration
+### [FIXED] SEC-006: Outbound sync uses dedicated central credentials and URL validation
 
 - Rule ID: FASTAPI-SSRF-001 / secret exfiltration via outbound requests
 - Severity: Medium
-- Location: `src/services/peers_service.py`, `sync_peers_status`, lines 176-205; `.env.example`, lines 15-17
+- Location: `src/services/peers_service.py`, `sync_peers_status`, lines 171-209, and `_validate_sync_url`, lines 211-238; `src/management/settings.py`, lines 16-18; `.env.example`, lines 20-24
 - Evidence:
   ```python
   sync_url = (central_api_url or self.settings.central_api_url or "").strip()
-  sync_api_key = get_api_key_storage().get_api_key().strip()
+  sync_api_key = (central_api_key or self.settings.central_api_key or "").strip()
   headers = {"X-API-Key": sync_api_key}
   ```
   ```env
-  CENTRAL_API_URL=http://your-central-api-host:8000/api/v1
+  # CENTRAL_API_URL=https://central-api.example.com/api/v1
+  # CENTRAL_API_KEY=replace-with-dedicated-central-sync-key
+  # CENTRAL_API_ALLOWED_HOSTS=central-api.example.com
   ```
-- Impact: The local admin API key is sent to the configured central URL. If that URL is mistyped, downgraded to plaintext HTTP, controlled by an attacker, or changed through compromised deployment config, the admin key can be exposed.
-- Fix: Use a separate `CENTRAL_API_KEY` with limited scope, require HTTPS outside development, validate the configured host against an allowlist, and fail fast on invalid URLs.
+- Impact: Before the fix, the local admin API key was sent to the configured central URL. If that URL was mistyped, downgraded to plaintext HTTP, controlled by an attacker, or changed through compromised deployment config, the admin key could be exposed.
+- Fix: Replaced admin-key reuse with a separate `CENTRAL_API_KEY`, added `CENTRAL_API_ALLOWED_HOSTS`, fail-fast URL validation, HTTPS enforcement outside development, credential/query/fragment rejection for the central URL, and explicit no-redirect outbound sync requests.
 - Mitigation: Keep `CENTRAL_API_URL` unset unless sync is required. Use network policy or firewall rules to restrict outbound destinations.
 - False positive notes: The URL is configuration-controlled, not request-controlled, so this is primarily a deployment/configuration risk.
 

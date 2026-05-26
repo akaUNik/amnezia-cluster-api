@@ -70,7 +70,9 @@ uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 | `SERVER_PUBLIC_HOST` | да | - | Публичный IP или домен сервера для peer-конфигураций. |
 | `SERVER_DISPLAY_NAME` | нет | `AmneziaWG Server` | Имя сервера в конфигурациях для Amnezia VPN. |
 | `API_KEY` | нет | генерируется | Ключ для защищенных маршрутов. Если не задан, приложение сгенерирует его и запишет в `.env`. |
-| `CENTRAL_API_URL` | нет | `None` | URL центрального API для синхронизации. |
+| `CENTRAL_API_URL` | нет | `None` | URL центрального API для синхронизации. В production должен использовать `https`. |
+| `CENTRAL_API_KEY` | нет | `None` | Отдельный ключ центрального API для синхронизации. Не используйте локальный `API_KEY`. |
+| `CENTRAL_API_ALLOWED_HOSTS` | нет | `None` | Разрешенные хосты центрального API через запятую, например `central-api.example.com`. Обязательно при включенной синхронизации. |
 | `SYNC_INTERVAL_SECONDS` | нет | `60` | Интервал фоновой синхронизации. |
 | `PROTOCOL_CONFIG_PATH` | нет | `src/management/protocols.yaml` | Путь к конфигурации протоколов. |
 | `PERSISTENT_KEEPALIVE_SECONDS` | нет | `25` | Значение keepalive для peer-конфигураций. |

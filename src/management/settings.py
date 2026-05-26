@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     api_key_failed_auth_block_seconds: int = 60
 
     central_api_url: str | None = None
+    central_api_key: str | None = None
+    central_api_allowed_hosts: str | None = None
     sync_interval_seconds: int = 60
     protocol_config_path: str = "src/management/protocols.yaml"
     persistent_keepalive_seconds: int = 25
