@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
+from src.api.v1.errors import internal_server_error
 from src.api.v1.peers.logger import logger
 from src.api.v1.peers.schemas import UpdatePeerRequest, UpdatePeerResponse
 from src.services.peers_service import get_peers_service
@@ -49,9 +50,6 @@ async def update_peer(payload: UpdatePeerRequest) -> UpdatePeerResponse:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
-        logger.error(f"Failed to update peer: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    except Exception:
+        logger.exception("Failed to update peer")
+        raise internal_server_error()

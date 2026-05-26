@@ -6,9 +6,52 @@ services:
     env_file:
       - .env
     ports:
-      - 8000:8000
+      - 127.0.0.1:${API_PORT:-8000}:8000
+    expose:
+      - 8000
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/amnezia:/opt/amnezia:rw
-      - ./.env:/app/.env:rw
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "3", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: always
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    profiles:
+      - nginx
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-localhost}
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-1m}
+      NGINX_RATE_LIMIT_RATE: ${NGINX_RATE_LIMIT_RATE:-60r/m}
+      NGINX_RATE_LIMIT_BURST: ${NGINX_RATE_LIMIT_BURST:-20}
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ${NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "3", "--insecure", "https://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: always
