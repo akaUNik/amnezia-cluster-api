@@ -49,27 +49,27 @@ The service protects operational routes with an `X-API-Key` header and disables 
 - Mitigation: Firewall port 8000, restrict source IPs, use host-level logging/auditing for Docker API calls, and keep the Docker socket out of deployments that do not need container restart/status features.
 - False positive notes: The mounts appear intentional for this product, but they are privileged and should be treated as part of the trusted computing base.
 
-### SEC-003: Shell helpers execute interpolated command strings in privileged contexts
+### \[FIXED\] SEC-003: Shell helpers execute interpolated command strings in privileged contexts
 
 - Rule ID: FASTAPI-CMD-001 / command injection prevention
 - Severity: High
-- Location: `src/services/host_service.py`, `run_command` and `read_file`, lines 17-24 and 102-104; `src/services/management/container_connection.py`, `run_command`, `read_file`, and `write_file`, lines 36-78; `src/services/protocols/amneziawg2/amneziawg2_connection.py`, lines 16-49
+- Location: `src/services/host_service.py`, `run_command` and `read_file`, lines 20-58 and 114-115; `src/services/management/container_connection.py`, `run_command`, `read_file`, `write_file`, validators, and Docker archive helpers, lines 56-286; `src/services/protocols/amneziawg2/amneziawg2_connection.py`, lines 16-78
 - Evidence:
   ```python
-  process = await asyncio.create_subprocess_shell(cmd, ...)
+  process = await asyncio.create_subprocess_exec(*args, ...)
   ```
   ```python
-  container.exec_run(cmd=["sh", "-c", cmd], ...)
+  container.exec_run(cmd=list(argv), ...)
   ```
   ```python
-  stdout, _ = await self.run_command(f"cat {path}")
-  cmd = f"cat > {path} <<'EOF'\n{escaped_content}\nEOF"
+  archive_stream, _ = container.get_archive(path)
+  container.put_archive(parent_dir, tar_stream.getvalue())
   ```
   ```python
-  stdout, _ = await self.run_command(f"echo '{private_key}' | wg pubkey")
+  await self.run_command(["wg", "pubkey"], input_data=f"{private_key.strip()}\n")
   ```
 - Impact: Any attacker-controlled or misconfigured value that reaches these helpers can alter shell syntax. Because the helpers run on the host or inside the Amnezia container and the app has Docker access, successful injection could read/write sensitive files or execute arbitrary commands in a privileged environment.
-- Fix: Avoid shell execution for fixed operations. Use argument-vector APIs where possible, validate protocol config fields (`interface`, `config_path`, container name) against strict allowlists, and use Docker SDK file-copy APIs or safe stdin mechanisms instead of heredoc string construction.
+- Fix: Replaced host shell execution with `create_subprocess_exec()`, replaced container `sh -c` execution with argv-based Docker exec, moved container file reads/writes to Docker archive APIs, passed WireGuard stdin data through Docker exec stdin, and added strict validation for protocol-controlled `container_name`, `interface`, and container paths.
 - Mitigation: Treat `protocols.yaml` and env-controlled paths as privileged configuration. Limit write access to `.env`, `protocols.yaml`, and `/opt/amnezia` to trusted administrators only.
 - False positive notes: The primary remote routes do not currently pass arbitrary request strings directly into these helpers. The finding is still high risk because the sink is privileged and several inputs come from deployment/config files and container file contents.
 
