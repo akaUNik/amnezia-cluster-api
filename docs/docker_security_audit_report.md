@@ -17,13 +17,14 @@ Validation performed:
 
 - `docker --version`
 - `docker compose config`
+- `make smoke`
 - Static review of Dockerfile, Compose mounts, nginx proxy configuration, build context exclusions, and Docker SDK usage.
 
 ## Executive Summary
 
 The container setup is functional and keeps the direct API port bound to `127.0.0.1` by default, which is a good baseline for local development. The largest risks are deployment and runtime hardening issues: the API container can access the host Docker socket, writes to `/opt/amnezia`, runs as root, and receives a writable `.env` mount. Those permissions appear intentional for the current product, but they make the API container part of the host trusted computing base.
 
-The most actionable build-time issue is that production TLS certificates are documented under `./nginx/certs`, while `.dockerignore` does not exclude that directory. Because `src/Dockerfile` uses `COPY . .`, local certificate private keys placed there can be copied into the API image during build.
+The previous build-time issue around TLS certificate material entering the API image has been remediated. `.dockerignore` now excludes certificate and private key patterns, and `src/Dockerfile` copies only the runtime `src/` tree after dependency installation instead of copying the whole repository.
 
 ## Critical Findings
 
@@ -34,8 +35,9 @@ No critical Docker-specific findings were identified in this pass.
 ### DOCKER-001: TLS private keys can enter the API image build context
 
 - Severity: High
-- Location: `src/Dockerfile`, lines 15; `.dockerignore`, lines 1-11; `docker-compose.yml`, lines 30-32; `README.md`, Docker section
-- Evidence:
+- Status: Fixed
+- Location: `src/Dockerfile`, lines 15; `.dockerignore`, lines 1-22; `docker-compose.yml`, lines 30-32; `README.md`, Docker section
+- Previous evidence:
   ```dockerfile
   COPY . .
   ```
@@ -46,7 +48,7 @@ No critical Docker-specific findings were identified in this pass.
   - ${NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro
   ```
 - Impact: The README instructs production users to place `fullchain.pem` and `privkey.pem` under `NGINX_CERTS_PATH`, defaulting to `./nginx/certs`. If those files exist during `docker compose --profile nginx up --build`, Docker can send them in the API build context and `COPY . .` can bake them into the API image. Anyone with access to the image, image layers, registry, or build cache could recover the TLS private key.
-- Recommended fix: Exclude certificate and key material from the build context:
+- Remediation: Certificate and key material are now excluded from the build context:
   ```dockerignore
   nginx/certs/*
   !nginx/certs/.gitkeep
@@ -55,14 +57,19 @@ No critical Docker-specific findings were identified in this pass.
   *.p12
   *.pfx
   id_rsa*
+  id_ed25519*
   ```
-- Stronger fix: Replace `COPY . .` with explicit copies of only runtime files, for example `COPY src ./src` plus the exact metadata files needed by the app.
+  The API image also uses an explicit runtime copy:
+  ```dockerfile
+  COPY src ./src
+  ```
 - Mitigation: Keep production certificates outside the repository tree and set `NGINX_CERTS_PATH` to that external directory.
 - False positive notes: Only `nginx/certs/.gitkeep` is present now. The issue appears when real certs are added for production as documented.
 
 ### DOCKER-002: API container has host-level control through the Docker socket
 
 - Severity: High
+- Status: Ignore
 - Location: `docker-compose.yml`, line 13; `src/services/host_service.py`, lines 14, 62, 82, 106; `src/services/management/container_connection.py`, lines 51, 139, 184, 203, 260, 285
 - Evidence:
   ```yaml
@@ -169,20 +176,15 @@ No critical Docker-specific findings were identified in this pass.
 ### DOCKER-008: Build context is broader than the runtime app needs
 
 - Severity: Low
-- Location: `src/Dockerfile`, line 15; `.dockerignore`, lines 1-11
-- Evidence:
+- Status: Fixed
+- Location: `src/Dockerfile`, line 15; `.dockerignore`, lines 1-22
+- Previous evidence:
   ```dockerfile
   COPY . .
   ```
-- Impact: The image can include docs, tests, README files, local helper files, and any future unignored files. This increases image size and raises the chance of accidental sensitive file inclusion.
-- Recommended fix: Prefer explicit Dockerfile copy rules and expand `.dockerignore` for non-runtime content:
-  ```dockerignore
-  docs/
-  tests/
-  public/
-  .env*
-  !.env.example
-  !.env.production.example
+- Remediation: The Dockerfile now copies only the runtime application tree:
+  ```dockerfile
+  COPY src ./src
   ```
 - Mitigation: Keep sensitive local files out of the repository directory even if they are untracked.
 - False positive notes: `.env`, Git metadata, cache directories, and bytecode are already excluded.
@@ -209,21 +211,20 @@ No critical Docker-specific findings were identified in this pass.
 - The direct API port is bound to loopback in Compose: `127.0.0.1:${API_PORT:-8000}:8000`.
 - The nginx profile mounts certificates read-only into the nginx container.
 - nginx redirects HTTP to HTTPS and proxies `X-Forwarded-Proto: https`.
-- `.dockerignore` excludes `.env`, `.git`, virtual environments, Python bytecode, and tool caches.
+- `.dockerignore` excludes `.env`, `.git`, virtual environments, Python bytecode, tool caches, TLS certificates, and common private key files.
 - The Dockerfile uses `uv sync --locked --no-dev`, reducing dependency drift and excluding development dependencies.
 - The general security report already documents that Docker socket access and `/opt/amnezia` writes are privileged operations.
 
 ## Recommended Remediation Order
 
-1. Exclude certificate and key material from `.dockerignore`, and move production certs outside the repository tree.
-2. Replace direct Docker socket mounting with a narrow proxy or privileged sidecar.
-3. Run the API image as a non-root user and avoid granting that user broad Docker access.
-4. Make production configuration read-only and pre-provision `API_KEY` outside the container.
-5. Add Compose runtime restrictions after testing compatibility.
-6. Add a CI container vulnerability scan and define a base image update workflow.
-7. Add nginx allowlisting/rate limiting for public deployments.
-8. Add Compose health checks for `api` and `nginx`.
+1. Replace direct Docker socket mounting with a narrow proxy or privileged sidecar.
+2. Run the API image as a non-root user and avoid granting that user broad Docker access.
+3. Make production configuration read-only and pre-provision `API_KEY` outside the container.
+4. Add Compose runtime restrictions after testing compatibility.
+5. Add a CI container vulnerability scan and define a base image update workflow.
+6. Add nginx allowlisting/rate limiting for public deployments.
+7. Add Compose health checks for `api` and `nginx`.
 
 ## Notes
 
-This report is a static and configuration-level audit. It does not include a live image vulnerability scan because no image was built as part of this documentation update.
+This report is a static and configuration-level audit. It does not include a live image vulnerability scan.
