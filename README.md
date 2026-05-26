@@ -160,6 +160,17 @@ curl "http://localhost:8000/peers/?online_only=true" \
 docker compose up --build
 ```
 
+Публикация API-образа в Docker Hub настроена через GitHub Actions workflow `CD`. Добавьте в GitHub repository secrets:
+
+- `DOCKERHUB_USERNAME`: имя Docker Hub пользователя, например `burdakovdv`.
+- `DOCKERHUB_TOKEN`: Docker Hub access token с правом push.
+
+Workflow запускается только при push в ветку `main` и публикует образ как:
+
+```bash
+docker push burdakovdv/amnezia-cluster-api:latest
+```
+
 API публикуется только на `127.0.0.1:${API_PORT:-8000}`. Для production-запуска через nginx используйте `.env.production.example` как основу, положите TLS-сертификаты в `NGINX_CERTS_PATH` с именами `fullchain.pem` и `privkey.pem`, задайте `DEVELOPMENT=false`, `SERVER_PUBLIC_HOST`, `API_ALLOWED_HOSTS` и `NGINX_SERVER_NAME`, затем запустите:
 
 ```bash
