@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
     load_protocol_config()
     logger.info(f"Loaded protocols: {get_available_protocols()}")
     get_api_key_storage().get_api_key()
-    logger.info("The API key was successfully installed")
+    logger.info("The API key was successfully configured")
     await sync_scheduler.start()
     yield
     await sync_scheduler.stop()

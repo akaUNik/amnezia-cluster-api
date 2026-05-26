@@ -22,7 +22,7 @@ Validation performed:
 
 ## Executive Summary
 
-The container setup is functional and keeps the direct API port bound to `127.0.0.1` by default, which is a good baseline for local development. The largest remaining risks are deployment and runtime hardening issues: the API container can access the host Docker socket, writes to `/opt/amnezia`, and receives a writable `.env` mount. Those permissions appear intentional for the current product, but they make the API container part of the host trusted computing base.
+The container setup is functional and keeps the direct API port bound to `127.0.0.1` by default, which is a good baseline for local development. The largest remaining risks are deployment and runtime hardening issues: the API container can access the host Docker socket and writes to `/opt/amnezia`. Those permissions appear intentional for the current product, but they make the API container part of the host trusted computing base.
 
 The previous build-time issue around TLS certificate material entering the API image has been remediated. `.dockerignore` now excludes certificate and private key patterns, and `src/Dockerfile` copies only the runtime `src/` tree after dependency installation instead of copying the whole repository.
 
@@ -105,8 +105,9 @@ No critical Docker-specific findings were identified in this pass.
 ### DOCKER-004: Writable `.env` bind mount allows container-to-host secret persistence
 
 - Severity: Medium
-- Location: `docker-compose.yml`, line 15; `src/management/security.py`, lines 28-35 and 54-80
-- Evidence:
+- Status: Fixed
+- Location: `docker-compose.yml`; `src/management/security.py`; `src/management/settings.py`
+- Previous evidence:
   ```yaml
   - ./.env:/app/.env:rw
   ```
@@ -114,10 +115,9 @@ No critical Docker-specific findings were identified in this pass.
   api_key = self._generate_api_key()
   self._write_to_env_file(api_key)
   ```
-- Impact: The app can write `API_KEY` into `.env`, which is convenient for first-run setup. In production, a compromised process can also modify a host-mounted environment file and potentially persist malicious configuration for later restarts.
-- Recommended fix: For production, pre-provision `API_KEY` and mount configuration read-only, or pass secrets through a platform secret mechanism instead of a writable bind mount.
-- Mitigation: Keep writable `.env` only for local development. Restrict host file permissions and ownership so only deployment automation can edit production env files.
-- False positive notes: The write behavior is intentional. The risk is production persistence after compromise.
+- Previous impact: The app could write `API_KEY` into `.env`, which was convenient for first-run setup. In production, a compromised process could also modify a host-mounted environment file and potentially persist malicious configuration for later restarts.
+- Remediation: `API_KEY` is now a required setting, the app no longer generates or writes keys into `.env`, and the API service no longer bind-mounts `.env`. Compose still uses `env_file: .env` to inject configuration into the container environment.
+- Residual risk: Keep real `.env` files out of version control and prefer platform secrets for production deployments.
 
 ### DOCKER-005: Compose service lacks defense-in-depth runtime restrictions
 
@@ -136,7 +136,7 @@ No critical Docker-specific findings were identified in this pass.
     - /tmp
   pids_limit: 256
   ```
-- Mitigation: Test these incrementally because the app writes `.env` today and may need writable paths for runtime caches.
+- Mitigation: Test these incrementally because the app may need writable paths for runtime caches.
 - False positive notes: Some controls may require small application or deployment changes before they can be enabled.
 
 ### DOCKER-006: Public nginx profile has no source allowlist or request rate limit

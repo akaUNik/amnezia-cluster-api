@@ -243,7 +243,7 @@ async def test_lifespan_does_not_log_api_key(monkeypatch):
         pass
 
     joined_logs = "\n".join(logged_messages)
-    assert "The API key was successfully installed" in joined_logs
+    assert "The API key was successfully configured" in joined_logs
     assert secret_api_key not in joined_logs
 
 

@@ -1,17 +1,20 @@
 import hashlib
 
+import pytest
+from pydantic import ValidationError
+
 from src.api.v1.management.middlewares.auth import FailedAuthLimiter
 from src.management import security
 from src.management.security import APIKeyStorage
-from src.management.settings import get_settings
+from src.management.settings import Settings, get_settings
 
 
-def test_api_key_verification_uses_fixed_length_digest_comparison(monkeypatch, tmp_path):
+def test_api_key_verification_uses_fixed_length_digest_comparison(monkeypatch):
     monkeypatch.setenv("DEVELOPMENT", "true")
     monkeypatch.setenv("SERVER_PUBLIC_HOST", "vpn.example.test")
     get_settings.cache_clear()
 
-    storage = APIKeyStorage(str(tmp_path / ".env"))
+    storage = APIKeyStorage()
     storage._api_key = "stored-secret"
     compared_lengths: list[tuple[int, int]] = []
 
@@ -29,6 +32,27 @@ def test_api_key_verification_uses_fixed_length_digest_comparison(monkeypatch, t
     ]
 
     get_settings.cache_clear()
+
+
+def test_settings_require_api_key(monkeypatch):
+    monkeypatch.delenv("API_KEY", raising=False)
+
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            development=True,
+            server_public_host="vpn.example.test",
+        )
+
+
+def test_settings_reject_blank_api_key():
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            development=True,
+            server_public_host="vpn.example.test",
+            api_key="   ",
+        )
 
 
 def test_failed_auth_limiter_blocks_after_configured_failures():

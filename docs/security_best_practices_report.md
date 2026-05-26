@@ -19,7 +19,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
   logger.info(f"The API key was successfully installed: {api_key}")
   ```
 - Impact: Anyone with access to container logs, centralized logging, terminal scrollback, or support bundles can obtain the admin API key and call protected endpoints that create peer credentials, inspect peer state, and restart the configured Amnezia container.
-- Fix: Never log the API key. Log only that a key exists or was generated, then rotate any key that may already have appeared in logs.
+- Fix: Never log the API key. Log only that a key exists, then rotate any key that may already have appeared in logs.
 - Mitigation: Restrict log access, scrub historical logs, and rotate `API_KEY` immediately if this service has been run in a shared or production environment.
 - False positive notes: This is an actual secret disclosure in app code; severity depends on who can access logs.
 
@@ -37,14 +37,13 @@ The service protects operational routes with an `X-API-Key` header and disables 
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - /opt/amnezia:/opt/amnezia:rw
-    - ./.env:/app/.env:rw
   ```
   ```dockerfile
   FROM python:3.13-slim
   ...
   CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
   ```
-- Impact: An application-level code execution flaw, dependency exploit, or leaked API key can become host/container control because the container can talk to Docker and write Amnezia configuration. The service is also published directly on all interfaces by the compose file.
+- Impact: An application-level code execution flaw, dependency exploit, or leaked API key can become host/container control because the container can talk to Docker and write Amnezia configuration.
 - Fix: Keep the API behind a private network, VPN, or reverse proxy allowlist. Replace direct Docker socket access with a narrow Docker socket proxy or a small privileged sidecar exposing only the operations needed. Run the app as a non-root user and mount only the exact paths required.
 - Mitigation: Firewall port 8000, restrict source IPs, use host-level logging/auditing for Docker API calls, and keep the Docker socket out of deployments that do not need container restart/status features.
 - False positive notes: The mounts appear intentional for this product, but they are privileged and should be treated as part of the trusted computing base.
@@ -70,7 +69,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
   ```
 - Impact: Any attacker-controlled or misconfigured value that reaches these helpers can alter shell syntax. Because the helpers run on the host or inside the Amnezia container and the app has Docker access, successful injection could read/write sensitive files or execute arbitrary commands in a privileged environment.
 - Fix: Replaced host shell execution with `create_subprocess_exec()`, replaced container `sh -c` execution with argv-based Docker exec, moved container file reads/writes to Docker archive APIs, passed WireGuard stdin data through Docker exec stdin, and added strict validation for protocol-controlled `container_name`, `interface`, and container paths.
-- Mitigation: Treat `protocols.yaml` and env-controlled paths as privileged configuration. Limit write access to `.env`, `protocols.yaml`, and `/opt/amnezia` to trusted administrators only.
+- Mitigation: Treat `protocols.yaml` and env-controlled paths as privileged configuration. Limit write access to `protocols.yaml` and `/opt/amnezia` to trusted administrators only.
 - False positive notes: The primary remote routes do not currently pass arbitrary request strings directly into these helpers. The finding is still high risk because the sink is privileged and several inputs come from deployment/config files and container file contents.
 
 ### [FIXED] SEC-004: Raw internal exception messages are returned to API clients

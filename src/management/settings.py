@@ -1,4 +1,7 @@
 from functools import lru_cache
+from typing import Annotated
+
+from pydantic import StringConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,7 +11,7 @@ class Settings(BaseSettings):
     server_public_host: str
     server_display_name: str = "AmneziaWG Server"
 
-    api_key: str | None = None
+    api_key: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     api_allowed_hosts: str | None = None
     api_enforce_https: bool = False
     api_key_failed_auth_limit: int = 10

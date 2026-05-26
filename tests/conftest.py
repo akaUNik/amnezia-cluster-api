@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 def test_settings(monkeypatch):
     monkeypatch.setenv("DEVELOPMENT", "true")
     monkeypatch.setenv("SERVER_PUBLIC_HOST", "vpn.example.test")
+    monkeypatch.setenv("API_KEY", "test-api-key")
 
     from src.management.settings import get_settings
 

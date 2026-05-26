@@ -71,7 +71,7 @@ uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 | `DEVELOPMENT` | да | - | Включает OpenAPI/Swagger/Redoc в режиме разработки. |
 | `SERVER_PUBLIC_HOST` | да | - | Публичный IP или домен сервера для peer-конфигураций. |
 | `SERVER_DISPLAY_NAME` | нет | `AmneziaWG Server` | Имя сервера в конфигурациях для Amnezia VPN. |
-| `API_KEY` | нет | генерируется | Ключ для защищенных маршрутов. Если не задан, приложение сгенерирует его и запишет в `.env`. |
+| `API_KEY` | да | - | Ключ для защищенных маршрутов. Если не задан, приложение завершит запуск с ошибкой. |
 | `API_ALLOWED_HOSTS` | нет | `SERVER_PUBLIC_HOST` | Разрешенные значения Host в production через запятую, например `api.example.com,198.51.100.10`. |
 | `API_ENFORCE_HTTPS` | нет | `false` | Включает редирект HTTP на HTTPS на уровне FastAPI. Используйте только когда перед приложением корректно настроен TLS/proxy. |
 | `CENTRAL_API_URL` | нет | `None` | URL центрального API для синхронизации. В production должен использовать `https`. |
@@ -163,7 +163,7 @@ docker compose --profile nginx up --build
 
 nginx слушает `80` и `443`, перенаправляет HTTP на HTTPS, проксирует запросы к API и передает исходный `Host`, который дополнительно проверяется приложением в production.
 
-API-контейнер запускается не от root. Пользователь приложения и группа доступа к Docker socket задаются в `src/Dockerfile`; файлы и каталоги, которые контейнер должен менять через bind mount, должны быть доступны этому UID/GID. Для production заранее задавайте `API_KEY`, чтобы контейнеру не требовалась запись в `.env`.
+API-контейнер запускается не от root. Пользователь приложения и группа доступа к Docker socket задаются в `src/Dockerfile`; файлы и каталоги, которые контейнер должен менять через bind mount, должны быть доступны этому UID/GID. `API_KEY` обязателен: задайте его в `.env` или через механизм секретов перед запуском.
 
 Просмотр логов:
 
@@ -175,7 +175,6 @@ docker compose logs -f api
 
 - `/var/run/docker.sock:/var/run/docker.sock`
 - `/opt/amnezia:/opt/amnezia:rw`
-- `./.env:/app/.env:rw`
 - `${NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro` при профиле `nginx`
 
 Доступ к Docker socket и запись в `/opt/amnezia` являются привилегированными операциями. Проверяйте такие изменения особенно внимательно.
