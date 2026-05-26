@@ -9,6 +9,7 @@ __pycache__/
 .ruff_cache/
 .DS_Store
 .env
+docs.local/
 
 # TLS certificates and private key material must never enter the API image
 # build context. The nginx service mounts certificates at runtime instead.
