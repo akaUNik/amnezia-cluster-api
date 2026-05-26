@@ -1,5 +1,6 @@
 import asyncio
 from abc import ABC, abstractmethod
+from typing import cast
 
 import docker
 
@@ -18,12 +19,13 @@ class ContainerConnection(ABC):
     def __init__(self, protocol_name: str):
         self.protocol_name = protocol_name
         self.protocol_config = get_protocol_config(protocol_name)
-        self.container_name = self.protocol_config.get("container_name")
+        container_name = self.protocol_config.get("container_name")
         self.interface = self.protocol_config.get("interface")
         self.config_path = self.protocol_config.get("config_path")
 
-        if not self.container_name:
+        if not container_name:
             raise ValueError(f"Protocol {protocol_name} does not define container_name")
+        self.container_name = str(container_name)
 
         try:
             self.docker_client = docker.from_env()
@@ -48,7 +50,8 @@ class ContainerConnection(ABC):
                 demux=True,
             )
 
-            exit_code, (stdout, stderr) = exec_result
+            exit_code, output = exec_result
+            stdout, stderr = cast(tuple[bytes | None, bytes | None], output)
             stdout_decoded = stdout.decode().strip() if stdout else ""
             stderr_decoded = stderr.decode().strip() if stderr else ""
 

@@ -1,7 +1,7 @@
 from loguru import logger
 
 def configure_logger(prefix: str, color: str):
-    if not logger._core.handlers:
+    if not getattr(logger, "_core").handlers:
         logger.add(
             lambda msg: print(msg, end=""),
             level="DEBUG",

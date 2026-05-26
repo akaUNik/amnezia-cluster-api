@@ -6,6 +6,9 @@ if TYPE_CHECKING:
 
 
 class BaseProtocolService(ABC):
+    def __init__(self, protocol_name: str) -> None:
+        pass
+
     @property
     @abstractmethod
     def protocol_name(self) -> str:
