@@ -183,6 +183,58 @@ def test_openapi_contract_exposes_current_routes(functional_client):
     assert set(paths["/server/restart"]) == {"post"}
 
 
+@pytest.mark.anyio
+async def test_lifespan_does_not_log_api_key(monkeypatch):
+    secret_api_key = "secret-key-that-must-not-be-logged"
+    monkeypatch.setenv("API_KEY", secret_api_key)
+    monkeypatch.setenv("DEVELOPMENT", "true")
+    monkeypatch.setenv("SERVER_PUBLIC_HOST", "vpn.example.test")
+
+    from src.management.security import get_api_key_storage
+    from src.management.settings import get_settings
+
+    get_settings.cache_clear()
+    get_api_key_storage.cache_clear()
+
+    import docker
+
+    monkeypatch.setattr(docker, "from_env", lambda: FakeDockerClient())
+
+    for module_name in ("src.main", "src.api.v1.server.router"):
+        sys.modules.pop(module_name, None)
+
+    main_module = importlib.import_module("src.main")
+    logged_messages: list[str] = []
+
+    class FakeLogger:
+        def info(self, message: str) -> None:
+            logged_messages.append(message)
+
+    class FakeAPIKeyStorage:
+        def get_api_key(self) -> str:
+            return secret_api_key
+
+    class FakeSyncScheduler:
+        async def start(self) -> None:
+            pass
+
+        async def stop(self) -> None:
+            pass
+
+    monkeypatch.setattr(main_module, "logger", FakeLogger())
+    monkeypatch.setattr(main_module, "load_protocol_config", lambda: None)
+    monkeypatch.setattr(main_module, "get_available_protocols", lambda: [PROTOCOL])
+    monkeypatch.setattr(main_module, "get_api_key_storage", lambda: FakeAPIKeyStorage())
+    monkeypatch.setattr(main_module, "sync_scheduler", FakeSyncScheduler())
+
+    async with main_module.lifespan(main_module.app):
+        pass
+
+    joined_logs = "\n".join(logged_messages)
+    assert "The API key was successfully installed" in joined_logs
+    assert secret_api_key not in joined_logs
+
+
 @pytest.mark.parametrize(
     "headers",
     [

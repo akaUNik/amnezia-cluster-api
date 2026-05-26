@@ -8,7 +8,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
 
 ## Critical Findings
 
-### SEC-001: Full API key is written to application logs
+### \[FIXED\] SEC-001: Full API key is written to application logs
 
 - Rule ID: FASTAPI-AUTH / secret logging
 - Severity: Critical
@@ -25,7 +25,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
 
 ## High Findings
 
-### SEC-002: Privileged Docker socket and host mounts create a large blast radius
+### \[IGNORE\] SEC-002: Privileged Docker socket and host mounts create a large blast radius
 
 - Rule ID: deployment hardening / least privilege
 - Severity: High

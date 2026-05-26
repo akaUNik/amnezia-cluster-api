@@ -22,8 +22,8 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Amnezia API...")
     load_protocol_config()
     logger.info(f"Loaded protocols: {get_available_protocols()}")
-    api_key = get_api_key_storage().get_api_key()
-    logger.info(f"The API key was successfully installed: {api_key}")
+    get_api_key_storage().get_api_key()
+    logger.info("The API key was successfully installed")
     await sync_scheduler.start()
     yield
     await sync_scheduler.stop()
