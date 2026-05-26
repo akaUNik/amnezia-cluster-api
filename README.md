@@ -1,78 +1,209 @@
-# Amnezia API
+# Amnezia Cluster API
 
-API на базе FastAPI для взаимодействия с сервисами амнезии.
+FastAPI-сервис для управления Amnezia-сервером и peer-конфигурациями. API создает, показывает, обновляет и удаляет peers, отдает статистику сервера и может перезапускать настроенный Amnezia-контейнер.
 
 > [!IMPORTANT]
-> Данное API не предоставляет интерфейс для **развертывания и настройки** самих сервисов Амнезии на сервере. Эти этапы внедрения должны быть реализованы самостоятельно пользователем-администратором перед запуском текущего проекта. (см. подробнее в Инструкции по запуску)
+> Проект не разворачивает Amnezia VPN/AmneziaWG на сервере с нуля. Перед запуском API сервер и выбранный протокол должны быть уже установлены и настроены администратором.
 
----
+## Возможности
 
-## Этапы внедрения
+- Создание peer-конфигураций для `amnezia_vpn` и `amnezia_wg`.
+- Список peers с фильтрами по типу приложения и online-статусу.
+- Обновление peer с сохранением выделенного IP-адреса.
+- Удаление peer из конфигурации протокола.
+- Проверка состояния Amnezia-контейнера.
+- Агрегированная статистика трафика.
+- Перезапуск Amnezia-контейнера.
+- Защита API-ключом через заголовок `X-API-Key`.
+- Загрузка протоколов из `src/management/protocols.yaml`.
 
-- [1. Развертывание сервисов Амнезии](#1-развертывание-сервисов-амнезии)
-    - [1.1 Установка актуального клиента Амнезии](#11-установка-актуального-клиента-амнезии)
-    - [1.2 Настройка self-hosted сервера под выбранный протокол](#12-настройка-self-hosted-сервера-под-выбранный-протокол)
-- [2. Настройка окружения Amnezia API](#2-настройка-окружения-amnezia-api)
-- [3. Запуск проекта ](#3-запуск-проекта)
+## Требования
 
-## 1. Развертывание сервисов Амнезии
-### 1.1 Установка актуального клиента Амнезии
+- Python 3.13
+- uv
+- Docker и Docker Compose для контейнерного запуска
+- Настроенный Amnezia-сервер
+- Доступ к `/opt/amnezia` на сервере
+- Доступ к Docker socket для управления контейнером
 
-> [!NOTE]
-> Этот этап выполняется на устройстве пользователя-администратора (не на сервере!)
+## Быстрый старт
 
-Для подключения к VPS и настройке протокола необходимо установить клиент Amnezia на ваше устройство (следите, чтобы приложение было up to date):
-
-- **Android**: [AmneziaVPN в Google Play](https://play.google.com/store/apps/details?id=org.amnezia.vpn)
-- **iOS (iPhone/iPad)**: [AmneziaWG в App Store](https://apps.apple.com/ru/app/amneziawg/id6478928530)
-- **Windows**: [Скачать .exe с официального сайта](https://amnezia.org/ru/downloads) или с [GitHub Releases](https://github.com/amnezia-vpn/amnezia-client/releases)
-- **Linux**:
-  ```bash
-  yay -S amneziavpn # Arch Linux (AUR)
-  # Или скачайте .deb со страницы релизов GitHub для Debian/Ubuntu
-  ```
-
-### 1.2 Настройка self-hosted сервера под выбранный протокол
-
-После установки клиента выполните следующие шаги для настройки сервера:
-
-1. Откройте приложение Amnezia и нажмите кнопку **Добавить** (крайняя правая кнопка в нижнем меню).
-2. Выберите пункт **"Self-hosted VPN"**.
-![Настойка Self-hosted VPN](public/connection.png)
-*Рисунок 1: настройка self-hosted VPN*
-3. Введите учетные данные вашего сервера: **IP-адрес**, **Логин** и **Пароль**.
-4. Нажмите кнопку **Continue**.
-5. На странице выбора режима установки нажмите **Manual**.
-![Настройка протокола AmneziaWG](public/manual.png)
-*Рисунок 2: Выбор installation type*
-6. Из списка протоколов выберите **AmneziaWG**.
-![Выбор протокола AmneziaWG](public/setup_protocol.png)
-*Рисунок 3: Выбор протокола*
-7. Произведите настройку протокола, следуя инструкциям на экране.
-
-## 2. Настройка окружения Amnezia API
-
-1. Установите `uv`, если он еще не установлен:
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-2. Создайте локальный файл окружения:
-   ```bash
-   cp .env.example .env
-   ```
-3. Заполните значения в `.env` под ваше окружение.
-
-## 3. Запуск проекта
-
-### Локальный запуск
+Установите зависимости:
 
 ```bash
 uv sync
+```
+
+Создайте локальный файл окружения:
+
+```bash
+cp .env.example .env
+```
+
+Заполните обязательные настройки:
+
+```env
+DEVELOPMENT=true
+SERVER_PUBLIC_HOST=your-server-ip-or-domain
+SERVER_DISPLAY_NAME=My AmneziaWG Server
+```
+
+Запустите API локально:
+
+```bash
 uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Запуск в Docker
+При `DEVELOPMENT=true` документация доступна по адресам:
+
+- `http://localhost:8000/docs`
+- `http://localhost:8000/redoc`
+- `http://localhost:8000/openapi.json`
+
+## Настройка окружения
+
+Сервис читает настройки из `.env`.
+
+| Переменная | Обязательна | Значение по умолчанию | Описание |
+| --- | --- | --- | --- |
+| `DEVELOPMENT` | да | - | Включает OpenAPI/Swagger/Redoc в режиме разработки. |
+| `SERVER_PUBLIC_HOST` | да | - | Публичный IP или домен сервера для peer-конфигураций. |
+| `SERVER_DISPLAY_NAME` | нет | `AmneziaWG Server` | Имя сервера в конфигурациях для Amnezia VPN. |
+| `API_KEY` | нет | генерируется | Ключ для защищенных маршрутов. Если не задан, приложение сгенерирует его и запишет в `.env`. |
+| `CENTRAL_API_URL` | нет | `None` | URL центрального API для синхронизации. |
+| `SYNC_INTERVAL_SECONDS` | нет | `60` | Интервал фоновой синхронизации. |
+| `PROTOCOL_CONFIG_PATH` | нет | `src/management/protocols.yaml` | Путь к конфигурации протоколов. |
+| `PERSISTENT_KEEPALIVE_SECONDS` | нет | `25` | Значение keepalive для peer-конфигураций. |
+| `PEER_ONLINE_THRESHOLD_SECONDS` | нет | `180` | Порог определения online-статуса peer. |
+
+Не коммитьте реальные `.env` файлы, API-ключи, серверные учетные данные и сгенерированные peer-секреты.
+
+## API
+
+Публичный маршрут:
+
+| Метод | Путь | Описание |
+| --- | --- | --- |
+| `GET` | `/health` | Health check. Не требует API-ключ. |
+
+Защищенные маршруты требуют заголовок:
+
+```http
+X-API-Key: <your-api-key>
+```
+
+### Peers
+
+| Метод | Путь | Описание |
+| --- | --- | --- |
+| `POST` | `/peers/` | Создать peer. |
+| `GET` | `/peers/` | Получить список peers. Поддерживает query-параметры `app_type` и `online_only`. |
+| `PATCH` | `/peers/` | Пересоздать peer с новым типом приложения, сохранив IP. |
+| `DELETE` | `/peers/` | Удалить peer по публичному ключу. |
+
+Поддерживаемые значения `app_type`:
+
+- `amnezia_vpn`
+- `amnezia_wg`
+
+Пример создания peer:
+
+```bash
+curl -X POST http://localhost:8000/peers/ \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -d '{"app_type":"amnezia_vpn"}'
+```
+
+Пример списка только online peers:
+
+```bash
+curl "http://localhost:8000/peers/?online_only=true" \
+  -H "X-API-Key: $API_KEY"
+```
+
+### Server
+
+| Метод | Путь | Описание |
+| --- | --- | --- |
+| `GET` | `/server/status` | Статус контейнера, порт, интерфейс и протокол. |
+| `GET` | `/server/traffic` | Суммарный трафик и количество peers. |
+| `POST` | `/server/restart` | Перезапуск настроенного Amnezia-контейнера. |
+
+## Docker
+
+Сборка и запуск:
 
 ```bash
 docker compose up --build
+```
+
+Просмотр логов:
+
+```bash
+docker compose logs -f api
+```
+
+`docker-compose.yml` монтирует:
+
+- `/var/run/docker.sock:/var/run/docker.sock`
+- `/opt/amnezia:/opt/amnezia:rw`
+- `./.env:/app/.env:rw`
+
+Доступ к Docker socket и запись в `/opt/amnezia` являются привилегированными операциями. Проверяйте такие изменения особенно внимательно.
+
+## Разработка
+
+Структура проекта:
+
+```text
+src/
+  main.py                         создание FastAPI-приложения и подключение роутеров
+  api/v1/                         роутеры, схемы, middleware и CRUD helpers
+  services/                       бизнес-логика и интеграции с протоколами
+  management/                     настройки, логирование, безопасность и protocols.yaml
+tests/
+  functional/                     функциональные тесты API
+  services/                       unit-тесты сервисов и протоколов
+```
+
+Основная проверка:
+
+```bash
+make test
+```
+
+Полезные команды:
+
+```bash
+uv run pytest
+uv run mypy
+make functional-test
+make smoke
+```
+
+`make smoke` проверяет импорт приложения, наличие маршрута `/health` и сборку Docker-образа.
+
+## Протоколы
+
+Протоколы описаны в `src/management/protocols.yaml`. Сейчас включен `amneziawg2`:
+
+```text
+src.services.protocols.amneziawg2.amneziawg2_service.AmneziaWG2Service
+```
+
+Конфигурация протокола задает имя контейнера, интерфейс, путь к конфигам, подсеть, DNS-серверы и параметры AmneziaWG.
+
+## Проверка перед PR
+
+Перед передачей изменений по возможности выполните:
+
+```bash
+make test
+```
+
+Для изменений в запуске, маршрутизации, Dockerfile или зависимостях дополнительно выполните:
+
+```bash
+make smoke
 ```
