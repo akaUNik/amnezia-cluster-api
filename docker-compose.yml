@@ -6,9 +6,28 @@ services:
     env_file:
       - .env
     ports:
-      - 8000:8000
+      - 127.0.0.1:${API_PORT:-8000}:8000
+    expose:
+      - 8000
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/amnezia:/opt/amnezia:rw
       - ./.env:/app/.env:rw
+    restart: always
+
+  nginx:
+    image: nginx:stable-alpine
+    profiles:
+      - nginx
+    depends_on:
+      - api
+    environment:
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-localhost}
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-1m}
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ${NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro
     restart: always

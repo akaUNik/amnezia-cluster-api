@@ -129,7 +129,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
 - Mitigation: Keep `CENTRAL_API_URL` unset unless sync is required. Use network policy or firewall rules to restrict outbound destinations.
 - False positive notes: The URL is configuration-controlled, not request-controlled, so this is primarily a deployment/configuration risk.
 
-### SEC-007: Production host-header and HTTPS enforcement are not visible in app code
+### [FIXED] SEC-007: Production host-header and HTTPS enforcement are not visible in app code
 
 - Rule ID: FASTAPI-HOST-001 / production baseline
 - Severity: Medium
@@ -140,7 +140,7 @@ The service protects operational routes with an `X-API-Key` header and disables 
   ```
   No `TrustedHostMiddleware` or HTTPS redirect/proxy enforcement appears in the app.
 - Impact: If this service is exposed directly, missing host validation can allow host-header abuse in some proxy and URL-generation scenarios. Missing HTTPS enforcement can expose API keys and generated peer private keys over plaintext transport.
-- Fix: Add `TrustedHostMiddleware` with explicit production hostnames, or document and enforce equivalent validation at the reverse proxy. Terminate TLS before the app and redirect HTTP at the proxy or app where appropriate.
+- Fix: Added production-only `TrustedHostMiddleware` using `API_ALLOWED_HOSTS` or `SERVER_PUBLIC_HOST`, added optional `API_ENFORCE_HTTPS` app redirects, and added an nginx profile that terminates TLS and redirects HTTP to HTTPS before proxying to the API.
 - Mitigation: Keep the API on a private interface or VPN-only network. Verify reverse proxy config before public exposure.
 - False positive notes: These protections may exist outside this repository. If so, document the deployment requirement.
 

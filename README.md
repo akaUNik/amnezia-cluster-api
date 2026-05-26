@@ -70,6 +70,8 @@ uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 | `SERVER_PUBLIC_HOST` | да | - | Публичный IP или домен сервера для peer-конфигураций. |
 | `SERVER_DISPLAY_NAME` | нет | `AmneziaWG Server` | Имя сервера в конфигурациях для Amnezia VPN. |
 | `API_KEY` | нет | генерируется | Ключ для защищенных маршрутов. Если не задан, приложение сгенерирует его и запишет в `.env`. |
+| `API_ALLOWED_HOSTS` | нет | `SERVER_PUBLIC_HOST` | Разрешенные значения Host в production через запятую, например `api.example.com,198.51.100.10`. |
+| `API_ENFORCE_HTTPS` | нет | `false` | Включает редирект HTTP на HTTPS на уровне FastAPI. Используйте только когда перед приложением корректно настроен TLS/proxy. |
 | `CENTRAL_API_URL` | нет | `None` | URL центрального API для синхронизации. В production должен использовать `https`. |
 | `CENTRAL_API_KEY` | нет | `None` | Отдельный ключ центрального API для синхронизации. Не используйте локальный `API_KEY`. |
 | `CENTRAL_API_ALLOWED_HOSTS` | нет | `None` | Разрешенные хосты центрального API через запятую, например `central-api.example.com`. Обязательно при включенной синхронизации. |
@@ -77,6 +79,9 @@ uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 | `PROTOCOL_CONFIG_PATH` | нет | `src/management/protocols.yaml` | Путь к конфигурации протоколов. |
 | `PERSISTENT_KEEPALIVE_SECONDS` | нет | `25` | Значение keepalive для peer-конфигураций. |
 | `PEER_ONLINE_THRESHOLD_SECONDS` | нет | `180` | Порог определения online-статуса peer. |
+| `NGINX_SERVER_NAME` | нет | `localhost` | Домен или IP, который nginx принимает в `server_name`. |
+| `NGINX_CERTS_PATH` | нет | `./nginx/certs` | Каталог с `fullchain.pem` и `privkey.pem` для TLS. |
+| `NGINX_CLIENT_MAX_BODY_SIZE` | нет | `1m` | Лимит размера HTTP-запроса на nginx. |
 
 Не коммитьте реальные `.env` файлы, API-ключи, серверные учетные данные и сгенерированные peer-секреты.
 
@@ -134,11 +139,19 @@ curl "http://localhost:8000/peers/?online_only=true" \
 
 ## Docker
 
-Сборка и запуск:
+Сборка и запуск API для локальной разработки:
 
 ```bash
 docker compose up --build
 ```
+
+API публикуется только на `127.0.0.1:${API_PORT:-8000}`. Для production-запуска через nginx положите TLS-сертификаты в `NGINX_CERTS_PATH` с именами `fullchain.pem` и `privkey.pem`, задайте `DEVELOPMENT=false`, `SERVER_PUBLIC_HOST`, `API_ALLOWED_HOSTS` и `NGINX_SERVER_NAME`, затем запустите:
+
+```bash
+docker compose --profile nginx up --build
+```
+
+nginx слушает `80` и `443`, перенаправляет HTTP на HTTPS, проксирует запросы к API и передает исходный `Host`, который дополнительно проверяется приложением в production.
 
 Просмотр логов:
 
@@ -151,6 +164,7 @@ docker compose logs -f api
 - `/var/run/docker.sock:/var/run/docker.sock`
 - `/opt/amnezia:/opt/amnezia:rw`
 - `./.env:/app/.env:rw`
+- `${NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro` при профиле `nginx`
 
 Доступ к Docker socket и запись в `/opt/amnezia` являются привилегированными операциями. Проверяйте такие изменения особенно внимательно.
 

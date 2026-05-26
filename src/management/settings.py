@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     server_display_name: str = "AmneziaWG Server"
 
     api_key: str | None = None
+    api_allowed_hosts: str | None = None
+    api_enforce_https: bool = False
     api_key_failed_auth_limit: int = 10
     api_key_failed_auth_window_seconds: int = 60
     api_key_failed_auth_block_seconds: int = 60
