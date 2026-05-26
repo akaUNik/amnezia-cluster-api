@@ -1,10 +1,13 @@
 IMAGE_NAME ?= amnezia-cluster-api:smoke
 
-.PHONY: test smoke app-smoke docker-build
+.PHONY: test functional-test smoke app-smoke docker-build
 
 test:
 	uv run pytest
 	uv run mypy
+
+functional-test:
+	uv run pytest tests/functional
 
 smoke: app-smoke docker-build
 
