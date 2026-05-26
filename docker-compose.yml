@@ -12,6 +12,14 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/amnezia:/opt/amnezia:rw
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    pids_limit: 256
     restart: always
 
   nginx:

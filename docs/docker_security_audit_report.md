@@ -122,10 +122,10 @@ No critical Docker-specific findings were identified in this pass.
 ### DOCKER-005: Compose service lacks defense-in-depth runtime restrictions
 
 - Severity: Medium
+- Status: Fixed
 - Location: `docker-compose.yml`, lines 1-33
-- Evidence: No `cap_drop`, `security_opt`, `read_only`, `tmpfs`, `pids_limit`, or resource limits are configured.
-- Impact: If the application process is exploited, the container has a broad default Linux capability set and a writable root filesystem. The Docker socket still dominates the risk, but these controls reduce damage from non-Docker exploit paths and accidental writes.
-- Recommended fix: Add restrictions where compatible:
+- Previous impact: If the application process was exploited, the container had a broad default Linux capability set and a writable root filesystem. The Docker socket still dominates the risk, but these controls reduce damage from non-Docker exploit paths and accidental writes.
+- Remediation: The API Compose service now drops all Linux capabilities, enables `no-new-privileges`, makes the root filesystem read-only, provides `/tmp` as tmpfs for runtime scratch space, and limits the container to 256 PIDs:
   ```yaml
   security_opt:
     - no-new-privileges:true
@@ -136,8 +136,7 @@ No critical Docker-specific findings were identified in this pass.
     - /tmp
   pids_limit: 256
   ```
-- Mitigation: Test these incrementally because the app may need writable paths for runtime caches.
-- False positive notes: Some controls may require small application or deployment changes before they can be enabled.
+- Residual risk: The Docker socket and `/opt/amnezia` bind mount remain intentionally privileged for current container management behavior. If runtime writes outside `/tmp` are introduced later, keep them on explicit tmpfs or bind/named volumes rather than re-enabling a writable root filesystem.
 
 ### DOCKER-006: Public nginx profile has no source allowlist or request rate limit
 
