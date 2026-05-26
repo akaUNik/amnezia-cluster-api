@@ -103,6 +103,7 @@ def functional_client(monkeypatch):
 
     main_module = importlib.import_module("src.main")
     server_router = importlib.import_module("src.api.v1.server.router")
+    peers_service_module = importlib.import_module("src.services.peers_service")
     fake_service = FakeProtocolService()
     fake_host_service = FakeHostService()
 
@@ -125,6 +126,8 @@ def functional_client(monkeypatch):
         "src.api.v1.peers.crud.update",
         "src.api.v1.peers.crud.delete",
         "src.api.v1.server.router",
+        "src.services.peers_service",
+        "src.services.server_service",
     ]
     for module_name in patch_modules:
         module = importlib.import_module(module_name)
@@ -136,10 +139,13 @@ def functional_client(monkeypatch):
             monkeypatch.setattr(module, "get_protocol_config", get_protocol_config)
 
     monkeypatch.setattr(server_router, "host_service", fake_host_service)
+    monkeypatch.setattr(server_router.server_service, "host_service", fake_host_service)
+    peers_service_module.get_peers_service.cache_clear()
 
     client = TestClient(main_module.app)
     yield client, fake_service, fake_host_service
 
+    peers_service_module.get_peers_service.cache_clear()
     get_settings.cache_clear()
     get_api_key_storage.cache_clear()
 
@@ -155,6 +161,26 @@ def test_health_check_does_not_require_api_key(functional_client):
 
     assert response.status_code == 200
     assert response.json() == {"app": "Amnezia API", "status": "running"}
+
+
+def test_openapi_contract_exposes_current_routes(functional_client):
+    client, _, _ = functional_client
+
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert set(paths) >= {
+        "/peers/",
+        "/server/status",
+        "/server/traffic",
+        "/server/restart",
+        "/health",
+    }
+    assert set(paths["/peers/"]) == {"get", "post", "patch", "delete"}
+    assert set(paths["/server/status"]) == {"get"}
+    assert set(paths["/server/traffic"]) == {"get"}
+    assert set(paths["/server/restart"]) == {"post"}
 
 
 @pytest.mark.parametrize(

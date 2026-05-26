@@ -5,9 +5,9 @@ from src.services.management import protocol_factory
 
 @pytest.fixture(autouse=True)
 def clear_protocol_config():
-    protocol_factory._protocol_config.clear()
+    protocol_factory.clear_protocol_config()
     yield
-    protocol_factory._protocol_config.clear()
+    protocol_factory.clear_protocol_config()
 
 
 def test_load_protocol_config_normalizes_names_and_filters_disabled_protocols(tmp_path):
@@ -66,3 +66,33 @@ protocols:
 
     with pytest.raises(ValueError, match="No enabled protocols configured"):
         protocol_factory.get_active_protocol_name()
+
+
+def test_reload_protocol_config_replaces_cached_protocols(tmp_path):
+    first_config = tmp_path / "first-protocols.yaml"
+    first_config.write_text(
+        """
+protocols:
+  first:
+    service_class: "package.module.FirstService"
+    enabled: true
+""",
+        encoding="utf-8",
+    )
+    second_config = tmp_path / "second-protocols.yaml"
+    second_config.write_text(
+        """
+protocols:
+  second:
+    service_class: "package.module.SecondService"
+    enabled: true
+""",
+        encoding="utf-8",
+    )
+
+    protocol_factory.load_protocol_config(str(first_config))
+    protocol_factory.reload_protocol_config(str(second_config))
+
+    assert protocol_factory.get_available_protocols() == ["second"]
+    with pytest.raises(ValueError, match="Unsupported protocol: first"):
+        protocol_factory.get_protocol_config("first")

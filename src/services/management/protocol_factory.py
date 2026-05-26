@@ -1,7 +1,7 @@
 import yaml
 import importlib
 from pathlib import Path
-from typing import Type
+from typing import Any, Type
 
 from src.management.logger import configure_logger
 from src.management.settings import get_settings
@@ -10,7 +10,35 @@ from src.services.management.base_protocol_service import BaseProtocolService
 
 logger = configure_logger("ProtocolFactory", "cyan")
 
-_protocol_config: dict[str, dict] = {}
+ProtocolConfig = dict[str, Any]
+
+_protocol_config: dict[str, ProtocolConfig] = {}
+
+
+def clear_protocol_config() -> None:
+    _protocol_config.clear()
+
+
+def _ensure_protocol_config_loaded() -> None:
+    if not _protocol_config:
+        load_protocol_config()
+
+
+def _normalize_protocol_name(protocol_name: str) -> str:
+    return protocol_name.lower()
+
+
+def _get_protocol_or_raise(protocol_name: str) -> ProtocolConfig:
+    _ensure_protocol_config_loaded()
+
+    normalized_name = _normalize_protocol_name(protocol_name)
+    if normalized_name not in _protocol_config:
+        available = get_available_protocols()
+        raise ValueError(
+            f"Unsupported protocol: {protocol_name}. Available protocols: {available}"
+        )
+
+    return _protocol_config[normalized_name]
 
 
 def load_protocol_config(config_path: str | None = None) -> None:
@@ -19,7 +47,7 @@ def load_protocol_config(config_path: str | None = None) -> None:
         config_path = settings.protocol_config_path
 
     config_file = Path(config_path)
-    _protocol_config.clear()
+    clear_protocol_config()
     if not config_file.exists():
         raise FileNotFoundError(f"Protocol config file not found: {config_file.resolve()}")
 
@@ -57,8 +85,7 @@ def reload_protocol_config(config_path: str | None = None) -> None:
 
 
 def get_available_protocols() -> list[str]:
-    if not _protocol_config:
-        load_protocol_config()
+    _ensure_protocol_config_loaded()
 
     return [
         name
@@ -75,31 +102,12 @@ def get_active_protocol_name() -> str:
 
 
 def get_protocol_config(protocol_name: str) -> dict:
-    if not _protocol_config:
-        load_protocol_config()
-
-    normalized_name = protocol_name.lower()
-    if normalized_name not in _protocol_config:
-        available = get_available_protocols()
-        raise ValueError(
-            f"Unsupported protocol: {protocol_name}. Available protocols: {available}"
-        )
-
-    return _protocol_config[normalized_name]
+    return _get_protocol_or_raise(protocol_name)
 
 
 def create_protocol_service(protocol_name: str) -> BaseProtocolService:
-    if not _protocol_config:
-        load_protocol_config()
-
-    normalized_name = protocol_name.lower()
-    if normalized_name not in _protocol_config:
-        available = get_available_protocols()
-        raise ValueError(
-            f"Unsupported protocol: {protocol_name}. Available protocols: {available}"
-        )
-
-    config = _protocol_config[normalized_name]
+    normalized_name = _normalize_protocol_name(protocol_name)
+    config = _get_protocol_or_raise(protocol_name)
     if not config.get("enabled", True):
         raise ValueError(f"Protocol {protocol_name} is disabled")
 

@@ -1,6 +1,5 @@
 import asyncio
 import docker
-from typing import Optional
 from src.management.logger import configure_logger
 
 logger = configure_logger("HostService", "cyan")
@@ -66,7 +65,7 @@ class HostService:
         logger.debug(f"Container {container_name} running: {is_running}")
         return is_running
 
-    async def get_container_port(self, container_name: str, protocol: str = "udp") -> Optional[int]:
+    async def get_container_port(self, container_name: str, protocol: str = "udp") -> int | None:
         try:
             container = await asyncio.to_thread(self.docker_client.containers.get, container_name)
             ports = container.attrs.get("NetworkSettings", {}).get("Ports", {})

@@ -110,3 +110,86 @@ def test_parse_wg_dump_maps_peer_fields_and_online_status(service):
     assert peers["offline-key"]["allowed_ips"] == ["10.8.1.3/32", "fd00::3/128"]
     assert peers["offline-key"]["persistent_keepalive"] == 0
     assert peers["offline-key"]["online"] is False
+
+
+class FakeConnection:
+    async def read_server_public_key(self) -> str:
+        return "server-public-key"
+
+    async def read_preshared_key(self) -> str:
+        return "preshared-key"
+
+    async def read_protocol_config(self) -> str:
+        return """
+[Interface]
+Address = 10.8.1.1/24
+Jc = 7
+Jmin = 11
+Jmax = 51
+"""
+
+
+@pytest.mark.anyio
+async def test_generate_text_config_matches_current_template():
+    instance = object.__new__(AmneziaWG2Service)
+    instance.settings = SimpleNamespace(
+        server_public_host="vpn.example.test",
+        persistent_keepalive_seconds=25,
+    )
+    instance._connection = FakeConnection()
+    instance.protocol_config = {
+        "primary_dns": "1.1.1.1",
+        "secondary_dns": "1.0.0.1",
+    }
+    instance._awg_params_defaults = {
+        "Jc": "5",
+        "Jmin": "10",
+        "Jmax": "50",
+        "S1": "",
+        "S2": "",
+        "S3": "",
+        "S4": "",
+        "H1": "",
+        "H2": "",
+        "H3": "",
+        "H4": "",
+        "I1": "",
+        "I2": "",
+        "I3": "",
+        "I4": "",
+        "I5": "",
+    }
+
+    assert await instance._generate_text_config(
+        private_key="client-private-key",
+        allowed_ip="10.8.1.2/32",
+        server_port=51820,
+    ) == (
+        "[Interface]\n"
+        "Address = 10.8.1.2/32\n"
+        "DNS = 1.1.1.1, 1.0.0.1\n"
+        "PrivateKey = client-private-key\n"
+        "Jc = 7\n"
+        "Jmin = 11\n"
+        "Jmax = 51\n"
+        "S1 = \n"
+        "S2 = \n"
+        "S3 = \n"
+        "S4 = \n"
+        "H1 = \n"
+        "H2 = \n"
+        "H3 = \n"
+        "H4 = \n"
+        "I1 = \n"
+        "I2 = \n"
+        "I3 = \n"
+        "I4 = \n"
+        "I5 = \n"
+        "\n"
+        "[Peer]\n"
+        "PublicKey = server-public-key\n"
+        "PresharedKey = preshared-key\n"
+        "AllowedIPs = 0.0.0.0/0, ::/0\n"
+        "Endpoint = vpn.example.test:51820\n"
+        "PersistentKeepalive = 25\n"
+    )

@@ -6,6 +6,7 @@ from collections import OrderedDict
 from typing import Any
 
 from src.services.management.config_generator import ConfigGenerator
+from src.services.protocols.amneziawg2.config_helpers import AWG_PARAM_KEYS
 
 
 class AmneziaWG2ConfigGenerator(ConfigGenerator):
@@ -84,24 +85,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         )
 
         last_config: OrderedDict[str, Any] = OrderedDict()
-        for key in [
-            "H1",
-            "H2",
-            "H3",
-            "H4",
-            "I1",
-            "I2",
-            "I3",
-            "I4",
-            "I5",
-            "Jc",
-            "Jmax",
-            "Jmin",
-            "S1",
-            "S2",
-            "S3",
-            "S4",
-        ]:
+        for key in AWG_PARAM_KEYS:
             last_config[key] = awg_params.get(key, "")
 
         last_config["allowed_ips"] = ["0.0.0.0/0", "::/0"]
@@ -118,24 +102,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         last_config["server_pub_key"] = server_public_key
 
         awg_config: OrderedDict[str, Any] = OrderedDict()
-        for key in [
-            "H1",
-            "H2",
-            "H3",
-            "H4",
-            "I1",
-            "I2",
-            "I3",
-            "I4",
-            "I5",
-            "Jc",
-            "Jmax",
-            "Jmin",
-            "S1",
-            "S2",
-            "S3",
-            "S4",
-        ]:
+        for key in AWG_PARAM_KEYS:
             awg_config[key] = awg_params.get(key, "")
 
         awg_config["last_config"] = json.dumps(last_config, indent=4)

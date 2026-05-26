@@ -1,43 +1,30 @@
-from typing import Optional, List
-
 from fastapi import APIRouter, HTTPException, status
 
 from src.api.v1.peers.logger import logger
-from src.api.v1.peers.schemas import ListPeerResponse, AppType
-from src.services.management.protocol_factory import create_protocol_service, get_active_protocol_name
+from src.api.v1.peers.schemas import ListPeerResponse
+from src.services.peers_service import get_peers_service
 
 router = APIRouter()
 
 
 @router.get(
     "/",
-    response_model=List[ListPeerResponse],
+    response_model=list[ListPeerResponse],
     status_code=status.HTTP_200_OK,
 )
 async def list_peers(
-    app_type: Optional[str] = None,
-    online_only: Optional[bool] = False,
-) -> List[ListPeerResponse]:
+    app_type: str | None = None,
+    online_only: bool = False,
+) -> list[ListPeerResponse]:
     """List all peers with their status and traffic statistics. Optional filters by app_type and online status."""
     try:
-        if app_type:
-            try:
-                AppType(app_type)
-            except ValueError:
-                raise ValueError(f"Invalid app_type: {app_type}")
-
-        protocol_name = get_active_protocol_name()
-        service = create_protocol_service(protocol_name)
-        peers_data = await service.get_peers()
+        protocol_name, peers_data = await get_peers_service().list_active_peers(
+            app_type=app_type,
+            online_only=online_only,
+        )
 
         peers = []
         for peer in peers_data:
-            if app_type and peer.get("app_type") != app_type:
-                continue
-
-            if online_only and not peer.get("online"):
-                continue
-
             peers.append(
                 ListPeerResponse(
                     public_key=peer["public_key"],
