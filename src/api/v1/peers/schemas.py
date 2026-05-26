@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import Optional
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -30,14 +29,14 @@ class ListPeerResponse(BaseModel):
 
     public_key: str
     allocated_ip: str
-    app_type: Optional[str] = None
+    app_type: str | None = None
     protocol: str
     endpoint: str
     is_online: bool = Field(alias="online")
-    last_handshake: Optional[datetime] = None
+    last_handshake: datetime | None = None
     rx_bytes: int = 0
     tx_bytes: int = 0
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
 
 class UpdatePeerRequest(BaseModel):

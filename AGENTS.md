@@ -10,6 +10,10 @@ This is a Python 3.13 FastAPI service for managing Amnezia-related server and pe
 - `cp .env.example .env`: create local configuration before running the app.
 - `uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000`: run the API locally with reload.
 - `uv run pytest`: run the automated test suite.
+- `uv run mypy`: run static type checks for `src` and `tests`.
+- `make test`: run the standard local verification target, currently `pytest` followed by `mypy`.
+- `make functional-test`: run only the functional tests under `tests/functional`.
+- `make smoke`: run the application import/health-route smoke check and build the Docker image.
 - `docker compose up --build`: build and run the service with Docker, including the Docker socket and `/opt/amnezia` mounts required by the current compose file.
 - `docker compose logs -f api`: follow API logs during containerized development.
 
@@ -20,6 +24,8 @@ Follow the existing Python style: 4-space indentation, type-annotated FastAPI en
 ## Testing Guidelines
 
 Use `pytest` conventions: place tests under `tests/`, mirror the source domain where useful, and name files `test_<module>.py`. Prefer focused unit tests for services and FastAPI `TestClient` tests for router behavior. Keep Docker-dependent tests clearly marked or isolated.
+
+Run `make test` before handing off code changes when practical. Use `make functional-test` for changes that affect end-to-end API behavior, and `make smoke` when startup, routing, Dockerfile, or dependency changes could affect deployment.
 
 ## Commit & Pull Request Guidelines
 

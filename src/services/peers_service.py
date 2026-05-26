@@ -9,6 +9,7 @@ from src.management.security import get_api_key_storage
 from src.services.host_service import HostService
 from src.services.management.protocol_factory import (
     create_protocol_service,
+    get_active_protocol_name,
     get_available_protocols,
     get_protocol_config,
 )
@@ -32,6 +33,68 @@ class PeersService:
         except ValueError as exc:
             logger.error(str(exc))
             raise
+
+    async def create_active_peer(self, app_type: str) -> dict:
+        protocol = get_active_protocol_name()
+        return await self.create_peer(protocol=protocol, app_type=app_type)
+
+    async def list_active_peers(
+        self,
+        app_type: str | None = None,
+        online_only: bool = False,
+    ) -> tuple[str, list[dict]]:
+        if app_type and app_type not in {"amnezia_vpn", "amnezia_wg"}:
+            raise ValueError(f"Invalid app_type: {app_type}")
+
+        protocol = get_active_protocol_name()
+        peers = await self.get_peers(protocol)
+        filtered_peers = []
+        for peer in peers:
+            if app_type and peer.get("app_type") != app_type:
+                continue
+            if online_only and not peer.get("online"):
+                continue
+            filtered_peers.append(peer)
+        return protocol, filtered_peers
+
+    async def update_active_peer(self, public_key: str, app_type: str) -> dict:
+        protocol = get_active_protocol_name()
+        service = self._get_service(protocol)
+        peers_data = await service.get_peers()
+
+        old_peer = None
+        for peer in peers_data:
+            if peer["public_key"] == public_key:
+                old_peer = peer
+                break
+
+        if not old_peer:
+            raise LookupError(f"Peer {public_key[:16]}... not found")
+
+        old_allocated_ip = (
+            old_peer["allowed_ips"][0]
+            if old_peer.get("allowed_ips")
+            else None
+        )
+
+        await service.delete_peer(public_key)
+        result = await service.create_peer(
+            app_type=app_type,
+            allocated_ip=old_allocated_ip,
+        )
+
+        return {
+            "old_public_key": public_key,
+            "new_public_key": result["public_key"],
+            "allocated_ip": result["allocated_ip"],
+            "app_type": result["app_type"],
+            "protocol": result["protocol"],
+            "config": result["config"],
+        }
+
+    async def delete_active_peer(self, public_key: str) -> bool:
+        protocol = get_active_protocol_name()
+        return await self.delete_peer(protocol=protocol, public_key=public_key)
 
     async def create_peer(
         self,

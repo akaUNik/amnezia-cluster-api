@@ -12,7 +12,7 @@ logger = configure_logger("ContainerConnection", "blue")
 
 
 class DockerError(Exception):
-    pass
+    """Raised when Docker command or client access fails."""
 
 
 class ContainerConnection(ABC):
@@ -79,32 +79,32 @@ class ContainerConnection(ABC):
 
     @abstractmethod
     async def get_peers_dump(self) -> str:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def sync_config(self) -> None:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def read_protocol_config(self) -> str:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def write_protocol_config(self, content: str) -> None:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def generate_private_key(self) -> str:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def generate_public_key(self, private_key: str) -> str:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def read_server_public_key(self) -> str:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def read_preshared_key(self) -> str:
-        pass
+        raise NotImplementedError

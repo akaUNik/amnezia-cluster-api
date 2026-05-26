@@ -1,11 +1,10 @@
-from typing import Optional
 from pydantic import BaseModel
 
 
 class ServerStatusResponse(BaseModel):
     status: str
     container_name: str
-    port: Optional[int]
+    port: int | None
     interface: str
     protocol: str
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from src.api.v1.peers.logger import logger
 from src.api.v1.peers.schemas import CreatePeerRequest, CreatePeerResponse
-from src.services.management.protocol_factory import create_protocol_service, get_active_protocol_name
+from src.services.peers_service import get_peers_service
 
 
 router = APIRouter()
@@ -16,10 +16,7 @@ router = APIRouter()
 async def create_peer(payload: CreatePeerRequest) -> CreatePeerResponse:
     """Create a new peer with automatic IP allocation."""
     try:
-        protocol_name = get_active_protocol_name()
-        service = create_protocol_service(protocol_name)
-
-        result = await service.create_peer(
+        result = await get_peers_service().create_active_peer(
             app_type=payload.app_type.value,
         )
 

@@ -47,15 +47,3 @@ class AmneziaWG2Connection(ContainerConnection):
     async def read_preshared_key(self) -> str:
         key_file = f"{self.config_path}/wireguard_psk.key"
         return await self.read_file(key_file)
-
-    async def get_wg_dump(self) -> str:
-        return await self.get_peers_dump()
-
-    async def sync_wg_config(self) -> None:
-        await self.sync_config()
-
-    async def read_wg_config(self) -> str:
-        return await self.read_protocol_config()
-
-    async def write_wg_config(self, content: str) -> None:
-        await self.write_protocol_config(content)

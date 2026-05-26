@@ -18,3 +18,8 @@ def test_settings(monkeypatch):
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
