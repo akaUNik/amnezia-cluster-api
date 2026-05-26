@@ -1,6 +1,7 @@
 import ipaddress
 import re
 from datetime import datetime
+from typing import Any
 
 from src.management.logger import configure_logger
 from src.management.settings import get_settings
@@ -363,8 +364,8 @@ class AmneziaWG2Service(BaseProtocolService):
 
         return params
 
-    def _parse_wg_dump(self, dump_output: str) -> dict:
-        peers = {}
+    def _parse_wg_dump(self, dump_output: str) -> dict[str, dict[str, Any]]:
+        peers: dict[str, dict[str, Any]] = {}
         lines = dump_output.strip().split("\n")
         if not lines:
             return peers

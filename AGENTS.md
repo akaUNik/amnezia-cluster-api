@@ -9,6 +9,7 @@ This is a Python 3.13 FastAPI service for managing Amnezia-related server and pe
 - `uv sync`: install project dependencies from `pyproject.toml` and `uv.lock`.
 - `cp .env.example .env`: create local configuration before running the app.
 - `uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000`: run the API locally with reload.
+- `uv run pytest`: run the automated test suite.
 - `docker compose up --build`: build and run the service with Docker, including the Docker socket and `/opt/amnezia` mounts required by the current compose file.
 - `docker compose logs -f api`: follow API logs during containerized development.
 
@@ -18,7 +19,7 @@ Follow the existing Python style: 4-space indentation, type-annotated FastAPI en
 
 ## Testing Guidelines
 
-No test suite is currently committed. When adding tests, use `pytest` conventions: place tests under `tests/`, mirror the source domain where useful, and name files `test_<module>.py`. Prefer focused unit tests for services and FastAPI `TestClient` tests for router behavior. Document any new test command in this file and keep Docker-dependent tests clearly marked or isolated.
+Use `pytest` conventions: place tests under `tests/`, mirror the source domain where useful, and name files `test_<module>.py`. Prefer focused unit tests for services and FastAPI `TestClient` tests for router behavior. Keep Docker-dependent tests clearly marked or isolated.
 
 ## Commit & Pull Request Guidelines
 
