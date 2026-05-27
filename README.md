@@ -160,12 +160,24 @@ curl "http://localhost:8000/peers/?online_only=true" \
 docker compose up --build
 ```
 
-Публикация API-образа в Docker Hub настроена через GitHub Actions workflow `CD`. Добавьте в GitHub repository secrets:
+Публикация API-образа в Docker Hub настроена через GitHub Actions workflow `Docker Image Publish`.
+
+Для настройки публикации создайте Docker Hub access token:
+
+1. Откройте Docker Hub: `Account settings` -> `Personal access tokens`.
+2. Создайте токен с правами на push в репозиторий `burdakovdv/amnezia-cluster-api`.
+3. Скопируйте токен один раз при создании.
+
+Затем добавьте repository secrets в GitHub:
+
+1. Откройте репозиторий в GitHub.
+2. Перейдите в `Settings` -> `Secrets and variables` -> `Actions`.
+3. Нажмите `New repository secret` и добавьте:
 
 - `DOCKERHUB_USERNAME`: имя Docker Hub пользователя, например `burdakovdv`.
 - `DOCKERHUB_TOKEN`: Docker Hub access token с правом push.
 
-Workflow запускается только при push в ветку `main` и публикует образ как:
+Workflow запускается при push в ветку `main` и публикует теги `latest` и `sha-<commit>`:
 
 ```bash
 docker push burdakovdv/amnezia-cluster-api:latest
