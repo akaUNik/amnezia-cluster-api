@@ -173,12 +173,57 @@ curl "http://localhost:8000/peers/?online_only=true" \
 - доступ к `/var/run/docker.sock`;
 - домен или публичный IP для `SERVER_PUBLIC_HOST`.
 
-Клонируйте репозиторий на сервер:
+Проверить это можно прямо на VPS:
+
+```bash
+# Amnezia-контейнер уже установлен и запущен
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | grep -Ei 'amnezia|awg|wireguard'
+
+# Docker Engine и Docker Compose plugin доступны
+docker --version
+docker compose version
+
+# git установлен
+git --version
+
+# есть доступ к каталогу Amnezia
+sudo test -d /opt/amnezia && sudo test -r /opt/amnezia && sudo test -w /opt/amnezia && echo "/opt/amnezia: ok"
+
+# Docker socket существует и доступен для команд docker
+test -S /var/run/docker.sock && docker ps >/dev/null && echo "docker.sock: ok"
+
+# домен или IP для SERVER_PUBLIC_HOST резолвится и указывает на этот VPS
+SERVER_PUBLIC_HOST=api.example.com
+getent hosts "$SERVER_PUBLIC_HOST"
+curl -4 ifconfig.me
+```
+
+В последнем блоке замените `api.example.com` на свой домен или публичный IP. IP из `getent hosts "$SERVER_PUBLIC_HOST"` должен совпадать с публичным IP VPS из `curl -4 ifconfig.me`. Если `docker ps` возвращает `permission denied`, выполняйте установку тем же пользователем, у которого есть доступ к Docker, или настройте доступ к Docker socket до запуска API.
+
+Создайте runtime-каталог приложения и временно клонируйте репозиторий:
 
 ```bash
 sudo mkdir -p /opt/amnezia-cluster-api
 sudo chown "$USER":"$USER" /opt/amnezia-cluster-api
-git clone https://github.com/akaUNik/amnezia-cluster-api.git /opt/amnezia-cluster-api
+
+AMNEZIA_CLUSTER_API_BRANCH=main
+rm -rf /tmp/amnezia-cluster-api
+git clone --depth 1 --branch "$AMNEZIA_CLUSTER_API_BRANCH" https://github.com/akaUNik/amnezia-cluster-api.git /tmp/amnezia-cluster-api
+```
+
+Для установки из `develop` замените `AMNEZIA_CLUSTER_API_BRANCH=main` на `AMNEZIA_CLUSTER_API_BRANCH=develop`.
+
+Скопируйте в runtime-каталог только файлы, нужные для запуска:
+
+```bash
+cd /opt/amnezia-cluster-api
+mkdir -p nginx/templates
+
+cp /tmp/amnezia-cluster-api/docker-compose.yml ./docker-compose.yml
+cp /tmp/amnezia-cluster-api/.env.production.example ./.env.production.example
+cp /tmp/amnezia-cluster-api/nginx/templates/default.conf.template ./nginx/templates/default.conf.template
+
+rm -rf /tmp/amnezia-cluster-api
 cd /opt/amnezia-cluster-api
 ```
 
@@ -218,7 +263,7 @@ NGINX_SSL_CERTIFICATE=/etc/letsencrypt/live/api.example.com/fullchain.pem
 NGINX_SSL_CERTIFICATE_KEY=/etc/letsencrypt/live/api.example.com/privkey.pem
 ```
 
-Compose-файл для VPS уже лежит в репозитории: `docker-compose.yml`. nginx template также берется из репозитория: `nginx/templates/default.conf.template`.
+В runtime-каталоге должны остаться только нужные для запуска файлы: `docker-compose.yml`, `.env`, `.env.production.example` и `nginx/templates/default.conf.template`.
 
 Сначала скачайте API-образ и запустите только API:
 
@@ -263,8 +308,16 @@ docker compose --profile nginx exec nginx nginx -s reload
 Обновление конфигов из репозитория и последнего опубликованного образа:
 
 ```bash
+AMNEZIA_CLUSTER_API_BRANCH=main
+rm -rf /tmp/amnezia-cluster-api
+git clone --depth 1 --branch "$AMNEZIA_CLUSTER_API_BRANCH" https://github.com/akaUNik/amnezia-cluster-api.git /tmp/amnezia-cluster-api
+
 cd /opt/amnezia-cluster-api
-git pull --ff-only
+cp /tmp/amnezia-cluster-api/docker-compose.yml ./docker-compose.yml
+cp /tmp/amnezia-cluster-api/.env.production.example ./.env.production.example
+cp /tmp/amnezia-cluster-api/nginx/templates/default.conf.template ./nginx/templates/default.conf.template
+rm -rf /tmp/amnezia-cluster-api
+
 docker compose --profile nginx --profile certbot pull
 docker compose --profile nginx up -d
 docker image prune -f
