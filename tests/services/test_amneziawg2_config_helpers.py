@@ -7,6 +7,7 @@ from src.services.protocols.amneziawg2.config_helpers import (
     build_peer_section,
     default_subnet_address,
     extract_awg_params,
+    extract_client_names,
     extract_listen_port,
     extract_peer_app_types,
     normalize_app_type,
@@ -68,6 +69,35 @@ S1 = 99 # inline comment is excluded
         "PresharedKey = psk\n"
         "AllowedIPs = 10.8.1.2/32\n"
     )
+
+
+def test_extract_client_names_reads_clients_table_metadata():
+    clients_table = """
+[
+    {
+        "clientId": "first-public-key",
+        "userData": {
+            "clientName": "dmitry-iphone"
+        }
+    },
+    {
+        "clientId": "second-public-key",
+        "userData": {
+            "allowedIps": "10.8.1.3/32",
+            "clientName": "Admin [macOS Tahoe (26.4.1)]"
+        }
+    },
+    {
+        "clientId": "missing-name",
+        "userData": {}
+    }
+]
+"""
+
+    assert extract_client_names(clients_table) == {
+        "first-public-key": "dmitry-iphone",
+        "second-public-key": "Admin [macOS Tahoe (26.4.1)]",
+    }
 
 
 @pytest.mark.parametrize(

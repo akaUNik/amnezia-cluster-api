@@ -53,6 +53,7 @@ class FakeProtocolService:
         peer = {
             "public_key": public_key,
             "allowed_ips": [peer_ip],
+            "client_name": f"client-{peer_id}",
             "app_type": app_type,
             "endpoint": endpoint,
             "online": True,
@@ -297,6 +298,7 @@ def test_peer_lifecycle_and_traffic_endpoints(functional_client):
         {
             "public_key": "public-key-1",
             "allocated_ip": "10.8.1.2/32",
+            "clientName": "client-1",
             "app_type": "amnezia_vpn",
             "protocol": PROTOCOL,
             "endpoint": "198.51.100.10:51820",

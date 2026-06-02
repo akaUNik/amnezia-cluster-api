@@ -112,6 +112,54 @@ def test_parse_wg_dump_maps_peer_fields_and_online_status(service):
     assert peers["offline-key"]["online"] is False
 
 
+class FakePeersConnection:
+    async def get_peers_dump(self) -> str:
+        recent_ts = int((datetime.now() - timedelta(seconds=30)).timestamp())
+        return (
+            "private\tpublic\tlisten-port\tfwmark\n"
+            f"named-key\tpsk\t203.0.113.10:12345\t10.8.1.2/32\t{recent_ts}\t100\t200\t25\n"
+            f"unnamed-key\tpsk\t(none)\t10.8.1.3/32\t0\t0\t0\toff\n"
+        )
+
+    async def read_protocol_config(self) -> str:
+        return """
+[Peer]
+# AppType = amnezia_vpn
+PublicKey = named-key
+AllowedIPs = 10.8.1.2/32
+"""
+
+    async def read_clients_table(self) -> str:
+        return """
+[
+    {
+        "clientId": "named-key",
+        "userData": {
+            "clientName": "dmitry-iphone"
+        }
+    }
+]
+"""
+
+
+@pytest.mark.anyio
+async def test_get_peers_includes_client_name_from_clients_table():
+    instance = object.__new__(AmneziaWG2Service)
+    instance.settings = SimpleNamespace(peer_online_threshold_seconds=180)
+    instance._connection = FakePeersConnection()
+    instance._protocol_name = "amneziawg2"
+    instance._default_app_type = AmneziaWG2Service.AMNEZIA_WG_APP_TYPE
+
+    peers = await instance.get_peers()
+
+    assert peers[0]["public_key"] == "named-key"
+    assert peers[0]["client_name"] == "dmitry-iphone"
+    assert peers[0]["app_type"] == "amnezia_vpn"
+    assert peers[1]["public_key"] == "unnamed-key"
+    assert peers[1]["client_name"] is None
+    assert peers[1]["app_type"] == "amnezia_wg"
+
+
 class FakeConnection:
     async def read_server_public_key(self) -> str:
         return "server-public-key"

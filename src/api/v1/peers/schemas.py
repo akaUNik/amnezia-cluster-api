@@ -29,6 +29,7 @@ class ListPeerResponse(BaseModel):
 
     public_key: str
     allocated_ip: str
+    client_name: str | None = Field(default=None, alias="clientName")
     app_type: str | None = None
     protocol: str
     endpoint: str

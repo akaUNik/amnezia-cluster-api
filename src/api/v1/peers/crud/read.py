@@ -30,6 +30,7 @@ async def list_peers(
                 ListPeerResponse(
                     public_key=peer["public_key"],
                     allocated_ip=peer["allowed_ips"][0] if peer.get("allowed_ips") else "N/A",
+                    clientName=peer.get("client_name"),
                     app_type=peer.get("app_type"),
                     protocol=protocol_name,
                     endpoint=peer.get("endpoint") or "N/A",
