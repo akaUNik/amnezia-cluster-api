@@ -1,6 +1,8 @@
 services:
   api:
-    image: burdakovdv/amnezia-cluster-api:${API_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Dockerfile
     env_file:
       - .env
     ports:
@@ -11,8 +13,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/amnezia:/opt/amnezia:rw
       - ./src/management/protocols.yaml:/app/src/management/protocols.yaml:ro
-    group_add:
-      - "${DOCKER_SOCKET_GID:-0}"
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -30,7 +30,9 @@ services:
     restart: always
 
   nginx:
-    image: nginx:stable-alpine
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
     profiles:
       - nginx
     depends_on:
@@ -52,7 +54,7 @@ services:
       - ${CERTBOT_LETSENCRYPT_PATH:-./nginx/letsencrypt}:/etc/letsencrypt:ro
       - ${CERTBOT_WWW_PATH:-./nginx/certbot/www}:/var/www/certbot:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider --no-check-certificate https://127.0.0.1/health"]
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "3", "--insecure", "https://127.0.0.1/health"]
       interval: 30s
       timeout: 5s
       retries: 3

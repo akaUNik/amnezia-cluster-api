@@ -6,6 +6,7 @@ from collections import OrderedDict
 from typing import Any
 
 from src.services.management.config_generator import ConfigGenerator
+from src.services.protocols.amneziawg2.config_helpers import AWG_PARAM_KEYS
 
 
 class AmneziaWG2ConfigGenerator(ConfigGenerator):
@@ -20,7 +21,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         server_public_key: str,
         psk: str,
         client_ip: str,
-        awg_params: dict,
+        awg_params: dict[str, Any],
         server_endpoint: str,
         server_port: int,
         primary_dns: str,
@@ -58,7 +59,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         server_public_key: str,
         psk: str,
         client_ip: str,
-        awg_params: dict,
+        awg_params: dict[str, Any],
         server_endpoint: str,
         server_port: int,
         primary_dns: str,
@@ -68,7 +69,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         subnet_address: str = "10.8.1.0",
         mtu: str = "1376",
         persistent_keepalive: int = 25,
-    ) -> dict:
+    ) -> dict[str, Any]:
         client_ip_plain = client_ip.split("/", 1)[0]
 
         wireguard_config = self._build_wireguard_config(
@@ -83,25 +84,8 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
             persistent_keepalive=persistent_keepalive,
         )
 
-        last_config = OrderedDict()
-        for key in [
-            "H1",
-            "H2",
-            "H3",
-            "H4",
-            "I1",
-            "I2",
-            "I3",
-            "I4",
-            "I5",
-            "Jc",
-            "Jmax",
-            "Jmin",
-            "S1",
-            "S2",
-            "S3",
-            "S4",
-        ]:
+        last_config: OrderedDict[str, Any] = OrderedDict()
+        for key in AWG_PARAM_KEYS:
             last_config[key] = awg_params.get(key, "")
 
         last_config["allowed_ips"] = ["0.0.0.0/0", "::/0"]
@@ -117,25 +101,8 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         last_config["psk_key"] = psk
         last_config["server_pub_key"] = server_public_key
 
-        awg_config = OrderedDict()
-        for key in [
-            "H1",
-            "H2",
-            "H3",
-            "H4",
-            "I1",
-            "I2",
-            "I3",
-            "I4",
-            "I5",
-            "Jc",
-            "Jmax",
-            "Jmin",
-            "S1",
-            "S2",
-            "S3",
-            "S4",
-        ]:
+        awg_config: OrderedDict[str, Any] = OrderedDict()
+        for key in AWG_PARAM_KEYS:
             awg_config[key] = awg_params.get(key, "")
 
         awg_config["last_config"] = json.dumps(last_config, indent=4)
@@ -144,7 +111,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         awg_config["subnet_address"] = subnet_address
         awg_config["transport_proto"] = "udp"
 
-        config = OrderedDict()
+        config: OrderedDict[str, Any] = OrderedDict()
         config["containers"] = [
             OrderedDict([("awg", awg_config), ("container", container_name)])
         ]
@@ -157,7 +124,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
 
         return config
 
-    def _create_vpn_link(self, data: dict) -> str:
+    def _create_vpn_link(self, data: dict[str, Any]) -> str:
         json_str = json.dumps(data, indent=4).encode("utf-8")
         header = struct.pack(">I", len(json_str))
         compressed_data = zlib.compress(json_str, level=8)
@@ -166,7 +133,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         )
         return f"vpn://{encoded}"
 
-    def decode_vpn_link(self, vpn_link: str) -> dict:
+    def decode_vpn_link(self, vpn_link: str) -> dict[str, Any]:
         encoded_data = vpn_link.replace("vpn://", "")
         padding = 4 - (len(encoded_data) % 4)
         if padding != 4:
@@ -192,7 +159,7 @@ class AmneziaWG2ConfigGenerator(ConfigGenerator):
         psk: str,
         server_endpoint: str,
         server_port: int,
-        awg_params: dict,
+        awg_params: dict[str, Any],
         mtu: str = "1376",
         persistent_keepalive: int = 25,
     ) -> str:

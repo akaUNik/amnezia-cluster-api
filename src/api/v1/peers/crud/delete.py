@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, status
 
+from src.api.v1.errors import internal_server_error
 from src.api.v1.peers.logger import logger
 from src.api.v1.peers.schemas import DeletePeerRequest, DeletePeerResponse
-from src.services.management.protocol_factory import create_protocol_service, get_active_protocol_name 
+from src.services.peers_service import get_peers_service
 
 
 router = APIRouter()
@@ -17,9 +18,7 @@ async def delete_peer(payload: DeletePeerRequest) -> DeletePeerResponse:
     """Delete a peer and remove it from the protocol configuration."""
     try:
         public_key = payload.public_key.strip()
-        protocol_name = get_active_protocol_name()
-        service = create_protocol_service(protocol_name)
-        deleted = await service.delete_peer(public_key)
+        deleted = await get_peers_service().delete_active_peer(public_key)
 
         if not deleted:
             raise HTTPException(
@@ -36,9 +35,6 @@ async def delete_peer(payload: DeletePeerRequest) -> DeletePeerResponse:
 
     except HTTPException:
         raise
-    except Exception as exc:
-        logger.error(f"Failed to delete peer: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    except Exception:
+        logger.exception("Failed to delete peer")
+        raise internal_server_error()

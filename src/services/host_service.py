@@ -1,6 +1,8 @@
 import asyncio
+from collections.abc import Sequence
+from pathlib import Path
+
 import docker
-from typing import Optional
 from src.management.logger import configure_logger
 
 logger = configure_logger("HostService", "cyan")
@@ -15,11 +17,20 @@ class HostService:
             logger.error(f"Failed to initialize Docker client: {exc}")
             raise RuntimeError(f"Docker client initialization failed: {exc}")
 
-    async def run_command(self, cmd: str, timeout: int = 2000, check: bool = True) -> tuple[str, str]:
-        logger.debug(f"Executing host command: {cmd}")
+    async def run_command(
+        self,
+        args: Sequence[str],
+        timeout: int = 2000,
+        check: bool = True,
+    ) -> tuple[str, str]:
+        if not args:
+            raise ValueError("Command arguments must not be empty")
 
-        process = await asyncio.create_subprocess_shell(
-            cmd,
+        command_display = " ".join(args)
+        logger.debug(f"Executing host command: {command_display}")
+
+        process = await asyncio.create_subprocess_exec(
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -31,7 +42,7 @@ class HostService:
             )
         except asyncio.TimeoutError:
             process.kill()
-            raise TimeoutError(f"Command timed out after {timeout}ms: {cmd}")
+            raise TimeoutError(f"Command timed out after {timeout}ms: {command_display}")
 
         stdout_decoded = stdout.decode().strip()
         stderr_decoded = stderr.decode().strip()
@@ -66,7 +77,7 @@ class HostService:
         logger.debug(f"Container {container_name} running: {is_running}")
         return is_running
 
-    async def get_container_port(self, container_name: str, protocol: str = "udp") -> Optional[int]:
+    async def get_container_port(self, container_name: str, protocol: str = "udp") -> int | None:
         try:
             container = await asyncio.to_thread(self.docker_client.containers.get, container_name)
             ports = container.attrs.get("NetworkSettings", {}).get("Ports", {})
@@ -101,8 +112,7 @@ class HostService:
             raise RuntimeError(f"Failed to restart container {container_name}: {exc}")
 
     async def read_file(self, path: str) -> str:
-        stdout, _ = await self.run_command(f"cat {path}")
-        return stdout
+        return (await asyncio.to_thread(Path(path).read_text, encoding="utf-8")).strip()
 
     @staticmethod
     async def get_system_info() -> dict:

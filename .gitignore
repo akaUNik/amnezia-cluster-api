@@ -70,6 +70,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs.local/
 
 # PyBuilder
 .pybuilder/
@@ -94,10 +95,9 @@ ipython_config.py
 #   fail to install, on other platforms.
 # Pipfile.lock
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+# uv
+#   Lock uv-managed dependencies in uv.lock and keep the local environment out of version control.
 # .venv
-# poetry.lock
 
 # pdm
 #   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.

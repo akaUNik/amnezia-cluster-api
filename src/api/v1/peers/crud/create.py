@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, status
 
+from src.api.v1.errors import internal_server_error
 from src.api.v1.peers.logger import logger
 from src.api.v1.peers.schemas import CreatePeerRequest, CreatePeerResponse
-from src.services.management.protocol_factory import create_protocol_service, get_active_protocol_name
+from src.services.peers_service import get_peers_service
 
 
 router = APIRouter()
@@ -16,10 +17,7 @@ router = APIRouter()
 async def create_peer(payload: CreatePeerRequest) -> CreatePeerResponse:
     """Create a new peer with automatic IP allocation."""
     try:
-        protocol_name = get_active_protocol_name()
-        service = create_protocol_service(protocol_name)
-
-        result = await service.create_peer(
+        result = await get_peers_service().create_active_peer(
             app_type=payload.app_type.value,
         )
 
@@ -44,9 +42,6 @@ async def create_peer(payload: CreatePeerRequest) -> CreatePeerResponse:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except Exception as exc:
-        logger.error(f"Failed to create peer: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    except Exception:
+        logger.exception("Failed to create peer")
+        raise internal_server_error()

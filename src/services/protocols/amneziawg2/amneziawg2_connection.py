@@ -14,48 +14,72 @@ class AmneziaWG2Connection(ContainerConnection):
             raise ValueError(f"Protocol {protocol_name} does not define config_path")
 
     async def get_peers_dump(self) -> str:
-        stdout, _ = await self.run_command(f"wg show {self.interface} dump")
+        interface = self._interface_name()
+        stdout, _ = await self.run_command(["wg", "show", interface, "dump"])
         return stdout
 
     async def sync_config(self) -> None:
-        config_file = f"{self.config_path}/{self.interface}.conf"
-        cmd = f"wg-quick strip {config_file} | wg syncconf {self.interface} /dev/stdin"
-        await self.run_command(cmd)
-        logger.info(f"WireGuard config synchronized for {self.interface}")
+        interface = self._interface_name()
+        config_file = self._protocol_config_file()
+        stripped_config, _ = await self.run_command(["wg-quick", "strip", config_file])
+        await self.run_command(
+            ["wg", "syncconf", interface, "/dev/stdin"],
+            input_data=f"{stripped_config}\n",
+        )
+        logger.info(f"WireGuard config synchronized for {interface}")
 
     async def read_protocol_config(self) -> str:
-        config_file = f"{self.config_path}/{self.interface}.conf"
-        return await self.read_file(config_file)
+        return await self.read_file(self._protocol_config_file())
 
     async def write_protocol_config(self, content: str) -> None:
-        config_file = f"{self.config_path}/{self.interface}.conf"
+        config_file = self._protocol_config_file()
         await self.write_file(config_file, content)
         logger.info(f"WireGuard config written to {config_file}")
 
     async def generate_private_key(self) -> str:
-        stdout, _ = await self.run_command("wg genkey")
+        stdout, _ = await self.run_command(["wg", "genkey"])
         return stdout
 
     async def generate_public_key(self, private_key: str) -> str:
-        stdout, _ = await self.run_command(f"echo '{private_key}' | wg pubkey")
+        stdout, _ = await self.run_command(
+            ["wg", "pubkey"],
+            input_data=f"{private_key.strip()}\n",
+        )
         return stdout
 
     async def read_server_public_key(self) -> str:
-        key_file = f"{self.config_path}/wireguard_server_public_key.key"
+        key_file = self._join_container_path(
+            self._config_path(),
+            "wireguard_server_public_key.key",
+        )
         return await self.read_file(key_file)
 
     async def read_preshared_key(self) -> str:
-        key_file = f"{self.config_path}/wireguard_psk.key"
+        key_file = self._join_container_path(
+            self._config_path(),
+            "wireguard_psk.key",
+        )
         return await self.read_file(key_file)
 
-    async def get_wg_dump(self) -> str:
-        return await self.get_peers_dump()
+    async def read_clients_table(self) -> str:
+        clients_table_file = self._join_container_path(
+            self._config_path(),
+            "clientsTable",
+        )
+        return await self.read_file(clients_table_file)
 
-    async def sync_wg_config(self) -> None:
-        await self.sync_config()
+    def _interface_name(self) -> str:
+        if self.interface is None:
+            raise ValueError(f"Protocol {self.protocol_name} does not define interface")
+        return self.interface
 
-    async def read_wg_config(self) -> str:
-        return await self.read_protocol_config()
+    def _config_path(self) -> str:
+        if self.config_path is None:
+            raise ValueError(f"Protocol {self.protocol_name} does not define config_path")
+        return self.config_path
 
-    async def write_wg_config(self, content: str) -> None:
-        await self.write_protocol_config(content)
+    def _protocol_config_file(self) -> str:
+        return self._join_container_path(
+            self._config_path(),
+            f"{self._interface_name()}.conf",
+        )

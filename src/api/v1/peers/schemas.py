@@ -1,8 +1,7 @@
-from datetime import datetime
-from typing import Optional
+from datetime import UTC, datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AppType(str, Enum):
@@ -22,23 +21,23 @@ class CreatePeerResponse(BaseModel):
     app_type: str
     protocol: str
     config: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ListPeerResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     public_key: str
     allocated_ip: str
-    app_type: Optional[str] = None
+    client_name: str | None = Field(default=None, alias="clientName")
+    app_type: str | None = None
     protocol: str
     endpoint: str
     is_online: bool = Field(alias="online")
-    last_handshake: Optional[datetime] = None
+    last_handshake: datetime | None = None
     rx_bytes: int = 0
     tx_bytes: int = 0
-    created_at: Optional[datetime] = None
-
-    class Config:
-        populate_by_name = True
+    created_at: datetime | None = None
 
 
 class UpdatePeerRequest(BaseModel):
@@ -53,7 +52,7 @@ class UpdatePeerResponse(BaseModel):
     app_type: str
     protocol: str
     config: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class DeletePeerResponse(BaseModel):

@@ -6,19 +6,22 @@ if TYPE_CHECKING:
 
 
 class BaseProtocolService(ABC):
+    def __init__(self, protocol_name: str) -> None:
+        raise NotImplementedError
+
     @property
     @abstractmethod
     def protocol_name(self) -> str:
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def connection(self) -> "ContainerConnection":
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def get_peers(self) -> list[dict]:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def create_peer(
@@ -26,8 +29,8 @@ class BaseProtocolService(ABC):
         app_type: str,
         allocated_ip: str | None = None,
     ) -> dict:
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def delete_peer(self, public_key: str) -> bool:
-        pass
+        raise NotImplementedError
