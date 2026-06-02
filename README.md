@@ -207,6 +207,7 @@ sudo rm -rf /opt/amnezia-cluster-api
 sudo mkdir -p /opt/amnezia-cluster-api
 sudo chown "$USER":"$USER" /opt/amnezia-cluster-api
 
+sudo rm -rf /tmp/amnezia-cluster-api
 AMNEZIA_CLUSTER_API_BRANCH=main
 git clone --depth 1 --branch "$AMNEZIA_CLUSTER_API_BRANCH" https://github.com/akaUNik/amnezia-cluster-api.git /tmp/amnezia-cluster-api
 ```
@@ -224,6 +225,8 @@ cp /tmp/amnezia-cluster-api/docker-compose.yml ./docker-compose.yml
 cp /tmp/amnezia-cluster-api/.env.production.example ./.env.production.example
 cp /tmp/amnezia-cluster-api/nginx/templates/default.conf.template ./nginx/templates/default.conf.template
 cp /tmp/amnezia-cluster-api/src/management/protocols.yaml ./src/management/protocols.yaml
+
+rm -rf /tmp/amnezia-cluster-api
 ```
 
 Создайте production `.env` из шаблона репозитория:
