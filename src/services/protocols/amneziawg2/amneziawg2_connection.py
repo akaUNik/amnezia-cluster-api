@@ -61,6 +61,13 @@ class AmneziaWG2Connection(ContainerConnection):
         )
         return await self.read_file(key_file)
 
+    async def read_clients_table(self) -> str:
+        clients_table_file = self._join_container_path(
+            self._config_path(),
+            "clientsTable",
+        )
+        return await self.read_file(clients_table_file)
+
     def _interface_name(self) -> str:
         if self.interface is None:
             raise ValueError(f"Protocol {self.protocol_name} does not define interface")

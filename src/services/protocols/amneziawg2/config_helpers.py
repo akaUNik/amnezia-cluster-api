@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import re
 from collections.abc import Callable
 from datetime import datetime
@@ -128,6 +129,28 @@ def extract_peer_app_types(
         app_types_by_public_key[public_key_match.group(1).strip()] = normalized_app_type
 
     return app_types_by_public_key
+
+
+def extract_client_names(clients_table: str) -> dict[str, str]:
+    clients = json.loads(clients_table)
+    if not isinstance(clients, list):
+        return {}
+
+    client_names: dict[str, str] = {}
+    for client in clients:
+        if not isinstance(client, dict):
+            continue
+
+        client_id = client.get("clientId")
+        user_data = client.get("userData")
+        if not isinstance(client_id, str) or not isinstance(user_data, dict):
+            continue
+
+        client_name = user_data.get("clientName")
+        if isinstance(client_name, str):
+            client_names[client_id] = client_name
+
+    return client_names
 
 
 def parse_wg_dump(

@@ -224,9 +224,6 @@ cp /tmp/amnezia-cluster-api/docker-compose.yml ./docker-compose.yml
 cp /tmp/amnezia-cluster-api/.env.production.example ./.env.production.example
 cp /tmp/amnezia-cluster-api/nginx/templates/default.conf.template ./nginx/templates/default.conf.template
 cp /tmp/amnezia-cluster-api/src/management/protocols.yaml ./src/management/protocols.yaml
-
-rm -rf /tmp/amnezia-cluster-api
-cd /opt/amnezia-cluster-api
 ```
 
 Создайте production `.env` из шаблона репозитория:

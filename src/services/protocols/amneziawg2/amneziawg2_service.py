@@ -3,6 +3,7 @@ from typing import Any
 from src.management.logger import configure_logger
 from src.management.settings import get_settings
 from src.services.management.base_protocol_service import BaseProtocolService
+from src.services.management.container_connection import DockerError
 from src.services.protocols.amneziawg2.amneziawg2_config_generator import (
     AmneziaWG2ConfigGenerator,
 )
@@ -15,6 +16,7 @@ from src.services.protocols.amneziawg2.config_helpers import (
     build_peer_section,
     default_subnet_address,
     extract_awg_params,
+    extract_client_names,
     extract_listen_port,
     extract_peer_app_types,
     normalize_app_type,
@@ -81,12 +83,14 @@ class AmneziaWG2Service(BaseProtocolService):
         peers_data = self._parse_wg_dump(dump_output)
         wg_config = await self.connection.read_protocol_config()
         app_types_by_public_key = self._extract_peer_app_types(wg_config)
+        client_names_by_public_key = await self._read_client_names_by_public_key()
 
         peers = []
         for public_key, data in peers_data.items():
             peers.append(
                 {
                     "public_key": public_key,
+                    "client_name": client_names_by_public_key.get(public_key),
                     "app_type": app_types_by_public_key.get(public_key, self._default_app_type),
                     "endpoint": data["endpoint"],
                     "allowed_ips": data["allowed_ips"],
@@ -306,6 +310,19 @@ class AmneziaWG2Service(BaseProtocolService):
             self._default_app_type,
             self._normalize_app_type,
         )
+
+    async def _read_client_names_by_public_key(self) -> dict[str, str]:
+        try:
+            clients_table = await self.connection.read_clients_table()
+        except DockerError as exc:
+            logger.debug(f"Could not read clientsTable for {self.protocol_name}: {exc}")
+            return {}
+
+        try:
+            return extract_client_names(clients_table)
+        except ValueError as exc:
+            logger.warning(f"Could not parse clientsTable for {self.protocol_name}: {exc}")
+            return {}
 
     def _resolve_default_app_type(self) -> str:
         raw_default = self.protocol_config.get("default_app_type", self.AMNEZIA_WG_APP_TYPE)
