@@ -70,11 +70,13 @@ uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 | Переменная | Обязательна | Значение по умолчанию | Описание |
 | --- | --- | --- | --- |
 | `DEVELOPMENT` | да | - | Включает OpenAPI/Swagger/Redoc в режиме разработки. |
+| `API_IMAGE_TAG` | нет | `latest` | Тег Docker Hub образа для VPS-запуска через `docker-compose.yml`. |
 | `SERVER_PUBLIC_HOST` | да | - | Публичный IP или домен сервера для peer-конфигураций. |
 | `SERVER_DISPLAY_NAME` | нет | `AmneziaWG Server` | Имя сервера в конфигурациях для Amnezia VPN. |
 | `API_KEY` | да | - | Ключ для защищенных маршрутов. Если не задан, приложение завершит запуск с ошибкой. |
 | `API_ALLOWED_HOSTS` | нет | `SERVER_PUBLIC_HOST` | Разрешенные значения Host в production через запятую, например `api.example.com,198.51.100.10`. |
 | `API_ENFORCE_HTTPS` | нет | `false` | Включает редирект HTTP на HTTPS на уровне FastAPI. Используйте только когда перед приложением корректно настроен TLS/proxy. |
+| `DOCKER_SOCKET_GID` | нет | `0` | GID группы Docker socket на хосте для VPS-запуска готового образа. |
 | `CENTRAL_API_URL` | нет | `None` | URL центрального API для синхронизации. В production должен использовать `https`. |
 | `CENTRAL_API_KEY` | нет | `None` | Отдельный ключ центрального API для синхронизации. Не используйте локальный `API_KEY`. |
 | `CENTRAL_API_ALLOWED_HOSTS` | нет | `None` | Разрешенные хосты центрального API через запятую, например `central-api.example.com`. Обязательно при включенной синхронизации. |
@@ -84,9 +86,15 @@ uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 | `PEER_ONLINE_THRESHOLD_SECONDS` | нет | `180` | Порог определения online-статуса peer. |
 | `NGINX_SERVER_NAME` | нет | `localhost` | Домен или IP, который nginx принимает в `server_name`. |
 | `NGINX_CERTS_PATH` | нет | `./nginx/certs` | Каталог с `fullchain.pem` и `privkey.pem` для TLS. |
+| `NGINX_SSL_CERTIFICATE` | нет | `/etc/nginx/certs/fullchain.pem` | Путь к TLS-сертификату внутри nginx-контейнера. Для certbot используйте `/etc/letsencrypt/live/<domain>/fullchain.pem`. |
+| `NGINX_SSL_CERTIFICATE_KEY` | нет | `/etc/nginx/certs/privkey.pem` | Путь к TLS-ключу внутри nginx-контейнера. Для certbot используйте `/etc/letsencrypt/live/<domain>/privkey.pem`. |
 | `NGINX_CLIENT_MAX_BODY_SIZE` | нет | `1m` | Лимит размера HTTP-запроса на nginx. |
 | `NGINX_RATE_LIMIT_RATE` | нет | `60r/m` | nginx rate limit на один клиентский IP. |
 | `NGINX_RATE_LIMIT_BURST` | нет | `20` | Допустимый кратковременный burst для nginx rate limit. |
+| `CERTBOT_EMAIL` | нет | - | Email для регистрации Let's Encrypt аккаунта при выпуске сертификата через certbot. |
+| `CERTBOT_DOMAIN` | нет | - | Домен, для которого certbot выпускает сертификат. Обычно совпадает с `NGINX_SERVER_NAME`. |
+| `CERTBOT_LETSENCRYPT_PATH` | нет | `./nginx/letsencrypt` | Хостовый каталог для `/etc/letsencrypt` certbot. |
+| `CERTBOT_WWW_PATH` | нет | `./nginx/certbot/www` | Webroot-каталог для HTTP-01 challenge. |
 
 Для production можно начать с отдельного шаблона:
 
@@ -152,12 +160,136 @@ curl "http://localhost:8000/peers/?online_only=true" \
 | `GET` | `/server/traffic` | Суммарный трафик и количество peers. |
 | `POST` | `/server/restart` | Перезапуск настроенного Amnezia-контейнера. |
 
-## Docker
+## Установка на VPS из готового образа
+
+Этот способ не собирает API на сервере. VPS берет compose-файл, nginx template и env-шаблон из репозитория, а API-контейнер скачивает из Docker Hub: `burdakovdv/amnezia-cluster-api:${API_IMAGE_TAG:-latest}`.
+
+Перед началом убедитесь, что на VPS уже есть:
+
+- установленный и настроенный Amnezia-сервер;
+- Docker Engine и Docker Compose plugin;
+- git;
+- доступ к `/opt/amnezia`;
+- доступ к `/var/run/docker.sock`;
+- домен или публичный IP для `SERVER_PUBLIC_HOST`.
+
+Клонируйте репозиторий на сервер:
+
+```bash
+sudo mkdir -p /opt/amnezia-cluster-api
+sudo chown "$USER":"$USER" /opt/amnezia-cluster-api
+git clone https://github.com/akaUNik/amnezia-cluster-api.git /opt/amnezia-cluster-api
+cd /opt/amnezia-cluster-api
+```
+
+Создайте production `.env` из шаблона репозитория:
+
+```bash
+cp .env.production.example .env
+```
+
+Заполните в `.env` как минимум:
+
+- `SERVER_PUBLIC_HOST`;
+- `API_ALLOWED_HOSTS`;
+- `API_KEY`;
+- `NGINX_SERVER_NAME`;
+- `CERTBOT_EMAIL`;
+- `CERTBOT_DOMAIN`;
+- `NGINX_SSL_CERTIFICATE` и `NGINX_SSL_CERTIFICATE_KEY`, если используете certbot-сертификаты из `/etc/letsencrypt`;
+- `DOCKER_SOCKET_GID`.
+
+Сгенерировать `API_KEY` можно так:
+
+```bash
+openssl rand -hex 32
+```
+
+`DOCKER_SOCKET_GID` должен совпадать с GID группы, которой принадлежит Docker socket на VPS:
+
+```bash
+stat -c '%g' /var/run/docker.sock
+```
+
+Для certbot-сертификатов обычно нужны такие пути внутри `.env`:
+
+```env
+NGINX_SSL_CERTIFICATE=/etc/letsencrypt/live/api.example.com/fullchain.pem
+NGINX_SSL_CERTIFICATE_KEY=/etc/letsencrypt/live/api.example.com/privkey.pem
+```
+
+Compose-файл для VPS уже лежит в репозитории: `docker-compose.yml`. nginx template также берется из репозитория: `nginx/templates/default.conf.template`.
+
+Сначала скачайте API-образ и запустите только API:
+
+```bash
+docker compose pull api
+docker compose up -d api
+docker compose ps
+```
+
+Проверьте health check API с VPS:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Если сертификата еще нет, временно освободите порт `80` и выпустите первый сертификат через standalone challenge:
+
+```bash
+docker compose --profile certbot run --rm -p 80:80 --entrypoint /bin/sh certbot -c 'certbot certonly --standalone -d "$CERTBOT_DOMAIN" --email "$CERTBOT_EMAIL" --agree-tos --no-eff-email'
+```
+
+После выпуска сертификата запустите nginx:
+
+```bash
+docker compose --profile nginx up -d
+docker compose ps
+```
+
+Теперь API доступен через nginx по `https://api.example.com`. Проверка:
+
+```bash
+curl https://api.example.com/health
+```
+
+Для продления сертификата, когда nginx уже запущен, используйте webroot challenge:
+
+```bash
+docker compose --profile certbot run --rm certbot
+docker compose --profile nginx exec nginx nginx -s reload
+```
+
+Обновление конфигов из репозитория и последнего опубликованного образа:
+
+```bash
+cd /opt/amnezia-cluster-api
+git pull --ff-only
+docker compose --profile nginx --profile certbot pull
+docker compose --profile nginx up -d
+docker image prune -f
+```
+
+Для более предсказуемого production-деплоя вместо `latest` можно закрепить тег образа в `.env`:
+
+```env
+API_IMAGE_TAG=sha-<commit>
+```
+
+Логи:
+
+```bash
+docker compose logs -f api nginx
+```
+
+## Docker: сборка из репозитория
+
+Этот раздел нужен, если репозиторий склонирован локально или на сервере и образ собирается из исходников. Для VPS-запуска без сборки используйте раздел выше.
 
 Сборка и запуск API для локальной разработки:
 
 ```bash
-docker compose up --build
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 Публикация API-образа в Docker Hub настроена через GitHub Actions workflow `Docker Image Publish`.
@@ -183,13 +315,41 @@ Workflow запускается при push в ветку `main` и публик
 docker push burdakovdv/amnezia-cluster-api:latest
 ```
 
-API публикуется только на `127.0.0.1:${API_PORT:-8000}`. Для production-запуска через nginx используйте `.env.production.example` как основу, положите TLS-сертификаты в `NGINX_CERTS_PATH` с именами `fullchain.pem` и `privkey.pem`, задайте `DEVELOPMENT=false`, `SERVER_PUBLIC_HOST`, `API_ALLOWED_HOSTS` и `NGINX_SERVER_NAME`, затем запустите:
+API публикуется только на `127.0.0.1:${API_PORT:-8000}`. Для production-запуска через nginx со сборкой из исходников используйте `.env.production.example` как основу, положите TLS-сертификаты в `NGINX_CERTS_PATH` с именами `fullchain.pem` и `privkey.pem`, задайте `DEVELOPMENT=false`, `SERVER_PUBLIC_HOST`, `API_ALLOWED_HOSTS` и `NGINX_SERVER_NAME`, затем запустите:
 
 ```bash
-docker compose --profile nginx up --build
+docker compose -f docker-compose.dev.yml --profile nginx up --build
 ```
 
 nginx слушает `80` и `443`, перенаправляет HTTP на HTTPS, проксирует запросы к API и передает исходный `Host`, который дополнительно проверяется приложением в production.
+
+Для выпуска сертификата через certbot задайте `CERTBOT_EMAIL` и `CERTBOT_DOMAIN`. При первом выпуске, если nginx еще не может стартовать из-за отсутствующих TLS-файлов, временно освободите порт `80` и запустите certbot в standalone-режиме:
+
+```bash
+docker compose -f docker-compose.dev.yml --profile certbot run --rm -p 80:80 --entrypoint /bin/sh certbot -c 'certbot certonly --standalone -d "$CERTBOT_DOMAIN" --email "$CERTBOT_EMAIL" --agree-tos --no-eff-email'
+```
+
+Для HTTP-01 validation порт `80` должен быть доступен извне на время выпуска и продления сертификата. Если UFW ограничивает доступ к `80/tcp` только административными IP, временно откройте его для проверки домена и верните ограничения после успешного выпуска.
+
+После выпуска сертификата переключите nginx на certbot-файлы:
+
+```env
+NGINX_SSL_CERTIFICATE=/etc/letsencrypt/live/api.example.com/fullchain.pem
+NGINX_SSL_CERTIFICATE_KEY=/etc/letsencrypt/live/api.example.com/privkey.pem
+```
+
+Когда nginx уже запущен, certbot может использовать webroot challenge через общий каталог `${CERTBOT_WWW_PATH:-./nginx/certbot/www}`:
+
+```bash
+docker compose -f docker-compose.dev.yml --profile certbot run --rm certbot
+```
+
+Для продления сертификата:
+
+```bash
+docker compose -f docker-compose.dev.yml --profile certbot run --rm --entrypoint certbot certbot renew --webroot --webroot-path /var/www/certbot
+docker compose -f docker-compose.dev.yml --profile nginx exec nginx nginx -s reload
+```
 
 Перед запуском nginx-профиля настройте UFW на хосте. Замените `203.0.113.10/32` на реальные IP/CIDR администраторов и сохраните отдельное правило для SSH, чтобы не потерять доступ к серверу:
 
@@ -203,7 +363,7 @@ sudo ufw enable
 sudo ufw status verbose
 ```
 
-Docker может публиковать порты через собственные iptables-правила, поэтому обычного вывода `ufw status` недостаточно. После запуска `docker compose --profile nginx up --build` проверьте доступ к `80` и `443` с адреса вне allowlist; если доступ открыт, подключите UFW к цепочке `DOCKER-USER` или примените эквивалентные `ufw route`-правила для Docker-forwarded traffic до production-запуска.
+Docker может публиковать порты через собственные iptables-правила, поэтому обычного вывода `ufw status` недостаточно. После запуска `docker compose -f docker-compose.dev.yml --profile nginx up --build` проверьте доступ к `80` и `443` с адреса вне allowlist; если доступ открыт, подключите UFW к цепочке `DOCKER-USER` или примените эквивалентные `ufw route`-правила для Docker-forwarded traffic до production-запуска.
 
 nginx также ограничивает частоту запросов на один клиентский IP через `NGINX_RATE_LIMIT_RATE` и `NGINX_RATE_LIMIT_BURST`.
 
@@ -212,14 +372,16 @@ API-контейнер запускается не от root. Пользоват
 Просмотр логов:
 
 ```bash
-docker compose logs -f api
+docker compose -f docker-compose.dev.yml logs -f api
 ```
 
-`docker-compose.yml` монтирует:
+`docker-compose.dev.yml` монтирует:
 
 - `/var/run/docker.sock:/var/run/docker.sock`
 - `/opt/amnezia:/opt/amnezia:rw`
 - `${NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro` при профиле `nginx`
+- `${CERTBOT_LETSENCRYPT_PATH:-./nginx/letsencrypt}:/etc/letsencrypt` при профиле `certbot`, read-only в nginx
+- `${CERTBOT_WWW_PATH:-./nginx/certbot/www}:/var/www/certbot` при профиле `certbot`, read-only в nginx
 
 Доступ к Docker socket и запись в `/opt/amnezia` являются привилегированными операциями. Проверяйте такие изменения особенно внимательно.
 

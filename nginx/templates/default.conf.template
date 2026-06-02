@@ -4,7 +4,13 @@ server {
     listen 80;
     server_name ${NGINX_SERVER_NAME};
 
-    return 308 https://$host$request_uri;
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 308 https://$host$request_uri;
+    }
 }
 
 server {
@@ -12,8 +18,8 @@ server {
     http2 on;
     server_name ${NGINX_SERVER_NAME};
 
-    ssl_certificate /etc/nginx/certs/fullchain.pem;
-    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_certificate ${NGINX_SSL_CERTIFICATE};
+    ssl_certificate_key ${NGINX_SSL_CERTIFICATE_KEY};
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_timeout 1d;
     ssl_session_cache shared:amnezia_api_tls:10m;

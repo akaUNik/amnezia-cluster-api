@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a Python 3.13 FastAPI service for managing Amnezia-related server and peer operations. Application code lives under `src/`: `src/main.py` creates the FastAPI app, `src/api/v1/` contains routers, schemas, CRUD helpers, and middleware, `src/services/` contains business logic and protocol integrations, and `src/management/` contains settings, logging, security, and `protocols.yaml`. Static README assets are in `public/`. Container entrypoints are defined by `docker-compose.yml` and `src/Dockerfile`.
+This is a Python 3.13 FastAPI service for managing Amnezia-related server and peer operations. Application code lives under `src/`: `src/main.py` creates the FastAPI app, `src/api/v1/` contains routers, schemas, CRUD helpers, and middleware, `src/services/` contains business logic and protocol integrations, and `src/management/` contains settings, logging, security, and `protocols.yaml`. Static README assets are in `public/`. Container entrypoints are defined by `docker-compose.yml`, `docker-compose.dev.yml`, and `src/Dockerfile`.
 
 ## Build, Test, and Development Commands
 
@@ -14,8 +14,8 @@ This is a Python 3.13 FastAPI service for managing Amnezia-related server and pe
 - `make test`: run the standard local verification target, currently `pytest` followed by `mypy`.
 - `make functional-test`: run only the functional tests under `tests/functional`.
 - `make smoke`: run the application import/health-route smoke check and build the Docker image.
-- `docker compose up --build`: build and run the service with Docker, including the Docker socket and `/opt/amnezia` mounts required by the current compose file.
-- `docker compose logs -f api`: follow API logs during containerized development.
+- `docker compose -f docker-compose.dev.yml up --build`: build and run the service with Docker, including the Docker socket and `/opt/amnezia` mounts required by the development compose file.
+- `docker compose -f docker-compose.dev.yml logs -f api`: follow API logs during containerized development.
 
 ## Coding Style & Naming Conventions
 
