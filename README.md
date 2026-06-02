@@ -269,10 +269,41 @@ docker compose up -d api
 docker compose ps
 ```
 
-Проверьте health check API с VPS:
+Проверьте API с VPS:
+
+1. Проверить health check:
 
 ```bash
 curl http://127.0.0.1:8000/health
+```
+
+Загрузить `API_KEY` из `.env`:
+
+```bash
+set -a
+. ./.env
+set +a
+```
+
+2. Проверить статус сервера:
+
+```bash
+curl -sS http://127.0.0.1:8000/server/status \
+  -H "X-API-Key: $API_KEY" | jq
+```
+
+3. Проверить общий трафик:
+
+```bash
+curl -sS http://127.0.0.1:8000/server/traffic \
+  -H "X-API-Key: $API_KEY" | jq
+```
+
+4. Получить список peers:
+
+```bash
+curl -sS http://127.0.0.1:8000/peers/ \
+  -H "X-API-Key: $API_KEY" | jq
 ```
 
 Если сертификата еще нет, временно освободите порт `80` и выпустите первый сертификат через standalone challenge:
